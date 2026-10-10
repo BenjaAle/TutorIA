@@ -10,16 +10,21 @@ import {
   Pencil,
   Trash2,
   Library,
-  Headphones,
   Sparkles,
   Loader2,
   Play,
+  Pause,
+  SkipBack,
+  SkipForward,
   MoreVertical,
-  BookAudio,
+  Volume2,
+  ArrowLeft,
 } from "lucide-react";
 import ModalAnki, { type CartaAnki } from "../components/ModalAnki";
-import "../styles/historias.css";
 import KindleSelection from "../components/KindleSelection";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/field";
+import { cn } from "@/lib/utils";
 
 // Cada historia tiene id, titulo y si esta fijada o no
 interface HistoriaPreview {
@@ -36,6 +41,14 @@ interface LineaHistoria {
   audio: string;
 }
 
+type Mode = "completo" | "lectura" | "escucha";
+const MODES: { id: Mode; label: string; detail: string }[] = [
+  { id: "completo", label: "Inglés + Español", detail: "Subtítulos y audio" },
+  { id: "lectura", label: "Inglés + IPA", detail: "Sin español" },
+  { id: "escucha", label: "Solo Audio", detail: "Inmersión total" },
+];
+const RATES = [0.75, 1, 1.25];
+
 export default function HistoriasPage() {
   // Sidebar State
   const [listaHistorias, setListaHistorias] = useState<HistoriaPreview[]>([]);
@@ -43,9 +56,7 @@ export default function HistoriasPage() {
   const [dificultad, setDificultad] = useState("C1");
   const [generando, setGenerando] = useState(false);
   const [historiaActiva, setHistoriaActiva] = useState<number | null>(null);
-  const [historiaTitulo, setHistoriaTitulo] = useState(
-    " Reproductor de Historias",
-  );
+  const [historiaTitulo, setHistoriaTitulo] = useState("Vuelve a leer");
 
   // Mobile toggle state
   const [isMobileOpen, setIsMobileOpenState] = useState(
@@ -60,36 +71,23 @@ export default function HistoriasPage() {
   const [menuActivoId, setMenuActivoId] = useState<number | null>(null);
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [nuevoTitulo, setNuevoTitulo] = useState("");
-  const [hoveredHistoriaId, setHoveredHistoriaId] = useState<number | null>(
-    null,
-  );
 
   // Board State
   const [lineas, setLineas] = useState<LineaHistoria[]>([]);
-  const [modo, setModo] = useState<"completo" | "lectura" | "escucha">(
-    "completo",
-  );
+  const [modo, setModo] = useState<Mode>("completo");
   const [indiceAudio, setIndiceAudio] = useState(-1);
   const [velocidad, setVelocidad] = useState(1.0);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   // Vocab State
   const [palabrasEnAnki, setPalabrasEnAnki] = useState<string[]>([]);
-
-  // Anki Modal State
-  const [cargandoAnki, setCargandoAnki] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [cartasPropuestas, setCartasPropuestas] = useState<CartaAnki[]>([]);
 
-  // Refs
   const audioPlayerRef = useRef<HTMLAudioElement>(null);
   const clickTimeout = useRef<any>(null);
-  const lastMousePos = useRef<{ x: number; y: number; time: number }>({
-    x: 0,
-    y: 0,
-    time: 0,
-  });
+  const lastMousePos = useRef({ x: 0, y: 0, time: 0 });
 
-  // 1. Cargar Vocabulario y Lista al Montar
   useEffect(() => {
     cargarVocabulario();
     cargarListaHistorias();
@@ -98,25 +96,15 @@ export default function HistoriasPage() {
   const cargarVocabulario = async () => {
     try {
       const res = await fetch("/api/vocabulario");
-      if (res.ok) {
-        const data = await res.json();
-        setPalabrasEnAnki(data);
-      }
-    } catch (err) {
-      console.error("Error cargando vocabulario:", err);
-    }
+      if (res.ok) setPalabrasEnAnki(await res.json());
+    } catch (err) {}
   };
 
   const cargarListaHistorias = async () => {
     try {
       const res = await fetch("/api/lista_historias");
-      if (res.ok) {
-        const data = await res.json();
-        setListaHistorias(data);
-      }
-    } catch (err) {
-      console.error("No se pudo cargar la lista:", err);
-    }
+      if (res.ok) setListaHistorias(await res.json());
+    } catch (err) {}
   };
 
   // 2. Resaltador
@@ -126,18 +114,16 @@ export default function HistoriasPage() {
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
-
     if (palabrasEnAnki.length === 0) return textoResaltado;
-
     const palabrasOrdenadas = [...palabrasEnAnki].sort(
       (a, b) => b.length - a.length,
     );
     palabrasOrdenadas.forEach((palabra) => {
-      const palabraLimpia = palabra.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const regex = new RegExp(`\\b(${palabraLimpia})\\b`, "gi");
+      const p = palabra.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(`\\b(${p})\\b`, "gi");
       textoResaltado = textoResaltado.replace(
         regex,
-        '<span class="anki-highlight">$1</span>',
+        '<span class="bg-primary/20 text-primary px-1 rounded-sm cursor-help transition-colors hover:bg-primary/40 font-medium">$1</span>',
       );
     });
     return textoResaltado;
@@ -148,7 +134,7 @@ export default function HistoriasPage() {
     if (!tema.trim()) return alert("Escribe un tema para la historia.");
     setGenerando(true);
     setLineas([]);
-    setHistoriaTitulo("Generando historia...");
+    setHistoriaTitulo("Generando...");
 
     try {
       const res = await fetch("/generar_historia", {
@@ -159,13 +145,11 @@ export default function HistoriasPage() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
-      setHistoriaTitulo(`${data.titulo}`);
       await cargarHistoria(data.historia_id);
       cargarListaHistorias();
       setTema("");
     } catch (err: any) {
       alert("Error: " + err.message);
-      setHistoriaTitulo("Reproductor de Historias");
     } finally {
       setGenerando(false);
     }
@@ -179,7 +163,6 @@ export default function HistoriasPage() {
       if (historiaActiva === id) {
         setHistoriaActiva(null);
         setLineas([]);
-        setHistoriaTitulo("Reproductor de Historias");
         setIndiceAudio(-1);
       }
     }
@@ -190,7 +173,6 @@ export default function HistoriasPage() {
       setEditandoId(null);
       return;
     }
-
     try {
       await fetch(`/api/historias/${id}`, {
         method: "PUT",
@@ -198,10 +180,8 @@ export default function HistoriasPage() {
         body: JSON.stringify({ titulo: nuevoTitulo }),
       });
       cargarListaHistorias();
-      if (historiaActiva === id) setHistoriaTitulo(`${nuevoTitulo}`);
-    } catch (e) {
-      console.error(e);
-    }
+      if (historiaActiva === id) setHistoriaTitulo(nuevoTitulo);
+    } catch (e) {}
     setEditandoId(null);
   };
 
@@ -209,18 +189,15 @@ export default function HistoriasPage() {
     try {
       await fetch(`/api/historias/${id}/fijar`, { method: "PUT" });
       cargarListaHistorias();
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) {}
     setMenuActivoId(null);
   };
 
   // Cierra menú si hacemos click afuera
   useEffect(() => {
     const handleMenuClickOutside = (e: MouseEvent) => {
-      if (!(e.target as HTMLElement).closest(".story-options-menu")) {
+      if (!(e.target as HTMLElement).closest(".story-options-menu"))
         setMenuActivoId(null);
-      }
     };
     document.addEventListener("mousedown", handleMenuClickOutside);
     return () =>
@@ -229,32 +206,29 @@ export default function HistoriasPage() {
 
   // 4. Cargar y Reproducir
   const cargarHistoria = async (id: number) => {
-    if (audioPlayerRef.current) {
-      audioPlayerRef.current.pause();
-    }
+    if (audioPlayerRef.current) audioPlayerRef.current.pause();
     setHistoriaActiva(id);
     setIndiceAudio(-1);
+    setIsPlaying(false);
+    setIsMobileOpen(false);
 
     const h = listaHistorias.find((hi) => hi.id === id);
-    if (h) setHistoriaTitulo(`${h.titulo}`);
+    if (h) setHistoriaTitulo(h.titulo);
 
     try {
       const res = await fetch(`/api/historias/${id}`);
       if (res.ok) {
         const data = await res.json();
         setLineas(data.lineas);
-        if (!h && data.titulo) {
-          setHistoriaTitulo(`${data.titulo}`);
-        }
+        if (!h && data.titulo) setHistoriaTitulo(data.titulo);
       }
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) {}
   };
 
   const reproducirDesde = (index: number) => {
     if (index >= lineas.length || index < 0) {
       setIndiceAudio(-1);
+      setIsPlaying(false);
       return;
     }
     setIndiceAudio(index);
@@ -266,10 +240,25 @@ export default function HistoriasPage() {
       audioPlayerRef.current.src = `${lineas[index].audio}?t=${Date.now()}`;
       audioPlayerRef.current.playbackRate = velocidad;
       audioPlayerRef.current.play();
+      setIsPlaying(true);
     }
   };
 
-  // Scroll local del story-board
+  const toggleMute = () => {
+    if (audioPlayerRef.current) {
+      if (audioPlayerRef.current.paused) {
+        if (indiceAudio === -1) reproducirDesde(0);
+        else {
+          audioPlayerRef.current.play();
+          setIsPlaying(true);
+        }
+      } else {
+        audioPlayerRef.current.pause();
+        setIsPlaying(false);
+      }
+    }
+  };
+
   useLayoutEffect(() => {
     if (indiceAudio >= 0) {
       const el = document.getElementById(`linea-${indiceAudio}`);
@@ -290,12 +279,9 @@ export default function HistoriasPage() {
 
   const handleAudioEnded = () => reproducirDesde(indiceAudio + 1);
 
-  const handleVelocidadChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const v = parseFloat(e.target.value);
+  const handleVelocidadChange = (v: number) => {
     setVelocidad(v);
-    if (audioPlayerRef.current) {
-      audioPlayerRef.current.playbackRate = v;
-    }
+    if (audioPlayerRef.current) audioPlayerRef.current.playbackRate = v;
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -307,29 +293,20 @@ export default function HistoriasPage() {
     if (e.button !== 0) return;
     const dx = Math.abs(e.clientX - lastMousePos.current.x);
     const dy = Math.abs(e.clientY - lastMousePos.current.y);
-
-    // Si movió el cursor, es selección
     if (dx > 5 || dy > 5) return;
-
     if (clickTimeout.current) clearTimeout(clickTimeout.current);
 
     clickTimeout.current = setTimeout(() => {
       // Confirmamos que la selección nativa del usuario no tenga nada seleccionado
       const sel = window.getSelection();
       if (sel && sel.toString().trim().length > 0) return;
-
-      if (indiceAudio === index) {
-        if (audioPlayerRef.current?.paused) audioPlayerRef.current.play();
-        else audioPlayerRef.current?.pause();
-      } else {
-        reproducirDesde(index);
-      }
+      if (indiceAudio === index) toggleMute();
+      else reproducirDesde(index);
     }, 200);
   };
 
   // Enviar a Anki (llamado desde el nuevo componente KindleSelection)
   const abrirAnkiDesdeFloating = async (palabra: string, contexto: string) => {
-    setCargandoAnki(true);
     try {
       const res = await fetch("/proponer_carta_unica", {
         method: "POST",
@@ -337,395 +314,415 @@ export default function HistoriasPage() {
         body: JSON.stringify({ palabra, contexto }),
       });
       const data = await res.json();
-
-      if (data.error) {
-        alert(data.error);
-      } else if (!data.cartas || data.cartas.length === 0) {
+      if (data.error) alert(data.error);
+      else if (!data.cartas || data.cartas.length === 0)
         alert("No se pudo generar la carta.");
-      } else {
+      else {
         setCartasPropuestas(data.cartas);
         setIsModalOpen(true);
       }
-    } catch (err) {
-      alert("Error al conectar con el servidor.");
-    } finally {
-      setCargandoAnki(false);
-      window.getSelection()?.removeAllRanges();
-    }
+    } catch (err) {}
+    window.getSelection()?.removeAllRanges();
   };
 
-  // Atajos de teclado
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement).tagName;
-      if (["INPUT", "TEXTAREA", "SELECT"].includes(tag)) return;
-
-      // Ignorar atajos del sistema como Ctrl+C, Ctrl+V
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-
-      if (e.code === "Space") {
-        e.preventDefault();
-        if (audioPlayerRef.current?.src) {
-          if (audioPlayerRef.current.paused) audioPlayerRef.current.play();
-          else audioPlayerRef.current.pause();
-        }
-      }
-
-      if (e.code === "Digit1" || e.code === "Numpad1") setModo("completo");
-      if (e.code === "Digit2" || e.code === "Numpad2") setModo("lectura");
-      if (e.code === "Digit3" || e.code === "Numpad3") setModo("escucha");
-
-      if (e.code === "KeyW") {
-        setIndiceAudio((prev) => {
-          if (prev > 0) {
-            e.preventDefault();
-            setTimeout(() => reproducirDesde(prev - 1), 0);
-          }
-          return prev;
-        });
-      }
-      if (e.code === "KeyC") {
-        if (audioPlayerRef.current?.src) {
-          e.preventDefault();
-          audioPlayerRef.current.currentTime = 0;
-          audioPlayerRef.current.play();
-        }
-      }
-      if (e.code === "KeyV") {
-        if (audioPlayerRef.current?.src) {
-          e.preventDefault();
-          audioPlayerRef.current.currentTime = 0;
-          audioPlayerRef.current.pause();
-        }
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [indiceAudio, lineas]);
-
-  const boardClasses = [];
-  if (modo === "lectura") boardClasses.push("hide-es", "show-ipa");
-  if (modo === "escucha") boardClasses.push("hide-en", "hide-es");
-
   return (
-    <div className="app-container">
-      <button
-        className={`mobile-menu-btn ${isMobileOpen ? "hidden" : ""}`}
-        onClick={() => setIsMobileOpen(true)}
+    <div className="flex h-dvh w-full overflow-hidden bg-background font-sans">
+      {/* SIDEBAR */}
+      <aside
+        className={cn(
+          "w-full shrink-0 flex-col border-r border-border md:flex md:w-80",
+          isMobileOpen ? "flex" : "hidden",
+        )}
       >
-        ☰
-      </button>
-      {isMobileOpen && (
-        <div
-          className="sidebar-overlay"
-          onClick={() => setIsMobileOpen(false)}
-        ></div>
-      )}
-      <div
-        className={`sidebar historias-sidebar ${isMobileOpen ? "open" : ""}`}
-      >
-        <div className="sidebar-actions">
-          <Link to="/" className="sidebar-link">
-            <button className="new-chat-btn btn-compact btn-back">
-              <MessageSquare size={18} /> Volver al Chat
-            </button>
-          </Link>
-          <Link to="/historias" className="sidebar-link">
-            <button className="new-chat-btn btn-compact btn-historias">
-              <BookOpen size={18} /> Historias IA
-            </button>
-          </Link>
-          <Link to="/fonetica" className="sidebar-link">
-            <button className="new-chat-btn btn-compact btn-fonetica">
-              <Speech size={18} /> Fonética
-            </button>
-          </Link>
-          <Link to="/cloze" className="sidebar-link">
-            <button className="new-chat-btn btn-compact">
-              <Puzzle size={18} /> Ejercicios
-            </button>
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <Link
+            to="/"
+            className="flex items-center gap-2 text-foreground font-semibold hover:text-primary transition-colors"
+          >
+            <ArrowLeft className="size-4" /> Tutor IA
           </Link>
         </div>
 
-        <h3 className="sidebar-section-title mt-20">Generar Historia</h3>
-        <div className="story-form">
-          <label className="story-label">Temática:</label>
-          <textarea
-            value={tema}
-            onChange={(e) => setTema(e.target.value)}
-            rows={3}
-            placeholder="Escribe de que quieres que se trate tu historia..."
-            className="story-textarea"
-          ></textarea>
-          <label className="story-label" style={{ marginTop: "5px" }}>
-            Dificultad:
-          </label>
-          <select
-            value={dificultad}
-            onChange={(e) => setDificultad(e.target.value)}
-            className="story-difficulty-select"
-          >
-            <option value="A1">A1 - Principiante</option>
-            <option value="A2">A2 - Elemental</option>
-            <option value="B1">B1 - Intermedio</option>
-            <option value="B2">B2 - Intermedio Alto</option>
-            <option value="C1">C1 - Avanzado</option>
-            <option value="C2 / Nativo">
-              C2 - Nativo (Jerga y Expr. Idiomáticas)
-            </option>
-          </select>
-          <button
-            className="new-chat-btn btn-compact"
-            onClick={generarHistoria}
-            disabled={generando}
-          >
-            {generando ? (
-              <>
-                <Loader2 size={18} /> Escribiendo y grabando...
-              </>
-            ) : (
-              <>
-                <Sparkles size={18} /> Generar y Crear Audios
-              </>
-            )}
-          </button>
-        </div>
-
-        <h3
-          className="sidebar-section-title library-title"
-          style={{ display: "flex", alignItems: "center", gap: "6px" }}
-        >
-          <Library size={18} /> Mi Biblioteca
-        </h3>
-        <div className="chat-list story-list">
-          {listaHistorias.map((h) => (
-            <div
-              key={h.id}
-              className={`story-list-item ${historiaActiva === h.id ? "active" : ""}`}
-              onMouseEnter={() => setHoveredHistoriaId(h.id)}
-              onMouseLeave={() => setHoveredHistoriaId(null)}
-            >
-              {editandoId === h.id ? (
-                <input
-                  type="text"
-                  className="story-edit-input"
-                  value={nuevoTitulo}
-                  onChange={(e) => setNuevoTitulo(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") renombrarHistoria(h.id);
-                    if (e.key === "Escape") setEditandoId(null);
-                  }}
-                  onBlur={() => renombrarHistoria(h.id)}
-                  autoFocus
+        <div className="flex-1 overflow-y-auto w-full">
+          <div className="p-5 border-b border-border">
+            <h3 className="font-serif text-lg font-semibold mb-4">
+              Nueva Historia
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <Label className="text-xs text-muted-foreground font-medium mb-1.5 block">
+                  Temática
+                </Label>
+                <textarea
+                  value={tema}
+                  onChange={(e) => setTema(e.target.value)}
+                  placeholder="Ej.: un misterio en Londres..."
+                  className="w-full min-h-[80px] rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring resize-none"
                 />
-              ) : (
-                <span
-                  className="story-list-title"
-                  onClick={() => {
-                    cargarHistoria(h.id);
-                    setIsMobileOpen(false);
-                  }}
-                >
-                  {h.fijada && <Pin size={16} fill="currentColor" />}
-                  {h.titulo}
-                </span>
-              )}
-
-              <div className="story-options-menu">
-                <button
-                  className="story-options-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMenuActivoId(menuActivoId === h.id ? null : h.id);
-                  }}
-                  style={{
-                    visibility:
-                      hoveredHistoriaId === h.id || menuActivoId === h.id
-                        ? "visible"
-                        : "hidden",
-                  }}
-                >
-                  <MoreVertical size={16} />
-                </button>
-
-                {menuActivoId === h.id && (
-                  <div className="story-dropdown-content">
-                    <button
-                      className="story-dropdown-item"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        fijarHistoria(h.id);
-                      }}
-                    >
-                      {h.fijada ? <PinOff size={14} /> : <Pin size={14} />}
-                      {h.fijada ? "Desfijar" : "Fijar arriba"}
-                    </button>
-                    <button
-                      className="story-dropdown-item"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditandoId(h.id);
-                        setNuevoTitulo(h.titulo);
-                        setMenuActivoId(null);
-                      }}
-                    >
-                      <Pencil size={14} /> Renombrar
-                    </button>
-                    <button
-                      className="story-dropdown-item danger"
-                      onClick={(e) => {
-                        setMenuActivoId(null);
-                        eliminarHistoria(h.id, e);
-                      }}
-                    >
-                      <Trash2 size={14} /> Eliminar
-                    </button>
-                  </div>
-                )}
               </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="chat-container historias-chat-container">
-        <div className="header historias-header">
-          <div className="historias-header-row">
-            <h2
-              className="historias-header-title"
-              style={{ display: "flex", alignItems: "center", gap: "10px" }}
-            >
-              <BookAudio size={26} /> {historiaTitulo}
-            </h2>
-            <div className="historias-header-actions">
-              {cargandoAnki && (
-                <span className="story-loading-text">⏳ Cargando Anki...</span>
-              )}
-              <select
-                value={velocidad}
-                onChange={handleVelocidadChange}
-                className="speed-select"
+              <div>
+                <Label className="text-xs text-muted-foreground font-medium mb-1.5 block">
+                  Nivel
+                </Label>
+                <select
+                  value={dificultad}
+                  onChange={(e) => setDificultad(e.target.value)}
+                  className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="A1">A1 - Principiante</option>
+                  <option value="A2">A2 - Elemental</option>
+                  <option value="B1">B1 - Intermedio</option>
+                  <option value="B2">B2 - Intermedio Alto</option>
+                  <option value="C1">C1 - Avanzado</option>
+                </select>
+              </div>
+              <Button
+                onClick={generarHistoria}
+                disabled={generando}
+                className="w-full"
               >
-                <option value={0.5}>0.5x</option>
-                <option value={0.75}>0.75x</option>
-                <option value={1}>1.0x</option>
-                <option value={1.25}>1.25x</option>
-              </select>
-              {indiceAudio === -1 && lineas.length > 0 && (
-                <button className="anki-btn" onClick={() => reproducirDesde(0)}>
-                  <Play size={16} fill="currentColor" />{" "}
-                  <span className="reproduce-text">Reproducir</span>
-                </button>
-              )}
+                {generando ? (
+                  <Loader2 className="animate-spin mr-2 size-4" />
+                ) : (
+                  <Sparkles className="mr-2 size-4" />
+                )}
+                {generando ? "Generando..." : "Mágia IA"}
+              </Button>
             </div>
           </div>
-          <audio
-            ref={audioPlayerRef}
-            controls
-            className="story-audio-player"
-            style={{ display: indiceAudio >= 0 ? "block" : "none" }}
-            onEnded={handleAudioEnded}
-          />
-        </div>
 
-        <div className="story-controls">
-          <button
-            className={`mode-btn ${modo === "completo" ? "active" : ""}`}
-            onClick={() => setModo("completo")}
-          >
-            1. Comprensión
-            <br />
-            <span className="mode-subtitle">(Audio + EN + ES)</span>
-          </button>
-          <button
-            className={`mode-btn ${modo === "lectura" ? "active" : ""}`}
-            onClick={() => setModo("lectura")}
-          >
-            2. Adquisición
-            <br />
-            <span className="mode-subtitle">(Audio + EN)</span>
-          </button>
-          <button
-            className={`mode-btn ${modo === "escucha" ? "active" : ""}`}
-            onClick={() => setModo("escucha")}
-          >
-            3. Inmersión
-            <br />
-            <span className="mode-subtitle">(Solo Audio)</span>
-          </button>
-        </div>
+          <div className="p-5">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+              <Library className="size-4" /> Historias Guardadas
+            </h3>
+            <ul className="space-y-1">
+              {listaHistorias.map((h) => (
+                <li key={h.id} className="relative group">
+                  {editandoId === h.id ? (
+                    <input
+                      type="text"
+                      value={nuevoTitulo}
+                      onChange={(e) => setNuevoTitulo(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") renombrarHistoria(h.id);
+                        if (e.key === "Escape") setEditandoId(null);
+                      }}
+                      onBlur={() => renombrarHistoria(h.id)}
+                      autoFocus
+                      className="w-full rounded border-primary px-3 py-2 text-sm shadow-sm ring-1 ring-primary focus:outline-none"
+                    />
+                  ) : (
+                    <button
+                      onClick={() => cargarHistoria(h.id)}
+                      className={cn(
+                        "w-full flex items-center justify-between gap-2 border border-transparent px-3 py-2.5 text-left rounded-md transition-colors hover:bg-muted/60",
+                        historiaActiva === h.id
+                          ? "bg-muted font-medium text-foreground"
+                          : "text-muted-foreground font-normal",
+                      )}
+                    >
+                      <span className="truncate flex items-center gap-2">
+                        {h.fijada && (
+                          <Pin
+                            size={14}
+                            className="fill-foreground text-foreground shrink-0"
+                          />
+                        )}
+                        <span className="truncate">{h.titulo}</span>
+                      </span>
+                    </button>
+                  )}
 
-        <div
-          id="story-board"
-          className={`story-board ${boardClasses.join(" ")}`}
-        >
-          {lineas.length === 0 ? (
-            <div className="story-empty-state">
-              {generando
-                ? "Generando contenido con IA... Esto puede tomar unos segundos."
-                : "Genera una historia en la barra lateral para comenzar."}
+                  {/* Dropdown Options Hover */}
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity story-options-menu bg-background/80 rounded z-10 backdrop-blur-sm shadow-sm border border-border">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="h-6 w-6"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMenuActivoId(menuActivoId === h.id ? null : h.id);
+                      }}
+                    >
+                      <MoreVertical size={14} />
+                    </Button>
+                    {menuActivoId === h.id && (
+                      <div className="absolute right-0 top-8 w-32 bg-popover text-popover-foreground rounded-md shadow-md border border-border py-1 text-xs">
+                        <button
+                          className="w-full text-left px-3 py-1.5 hover:bg-muted/60 flex items-center gap-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            fijarHistoria(h.id);
+                          }}
+                        >
+                          {h.fijada ? <PinOff size={14} /> : <Pin size={14} />}{" "}
+                          {h.fijada ? "Soltar" : "Fijar"}
+                        </button>
+                        <button
+                          className="w-full text-left px-3 py-1.5 hover:bg-muted/60 flex items-center gap-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditandoId(h.id);
+                            setNuevoTitulo(h.titulo);
+                            setMenuActivoId(null);
+                          }}
+                        >
+                          <Pencil size={14} /> Renombrar
+                        </button>
+                        <button
+                          className="w-full text-left px-3 py-1.5 hover:bg-destructive/10 text-destructive flex items-center gap-2"
+                          onClick={(e) => {
+                            setMenuActivoId(null);
+                            eliminarHistoria(h.id, e);
+                          }}
+                        >
+                          <Trash2 size={14} /> Eliminar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </aside>
+
+      {/* STORY MAIN CONTENT */}
+      <main
+        className={cn(
+          "flex-1 overflow-hidden relative flex flex-col bg-background",
+          isMobileOpen ? "hidden" : "flex",
+        )}
+      >
+        <header className="flex items-center gap-3 border-b border-border px-4 py-3 md:px-8 md:py-4 bg-background z-10 h-[69px]">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={() => setIsMobileOpen(true)}
+          >
+            <ArrowLeft />
+          </Button>
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate font-serif text-lg font-semibold md:text-xl">
+              {historiaActiva ? historiaTitulo : "Biblioteca de Historias"}
+            </h2>
+          </div>
+        </header>
+
+        {!historiaActiva ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-muted-foreground bg-muted/10">
+            <div className="size-20 mb-6 bg-secondary text-primary rounded-full flex items-center justify-center">
+              <BookOpen className="size-10" />
             </div>
-          ) : (
-            lineas.map((linea, index) => (
+            <h2 className="font-serif text-2xl font-semibold text-foreground">
+              Lectura Bilingüe
+            </h2>
+            <p className="mt-2 text-sm max-w-sm">
+              Genera una nueva historia sobre lo que quieras a la izquierda, o
+              selecciona una de tu biblioteca.
+            </p>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-hidden flex flex-col bg-card">
+            {/* Top Tabs */}
+            <div className="px-4 py-4 md:px-8 border-b border-border bg-background shadow-xs shrink-0 overflow-x-auto">
               <div
-                key={index}
-                id={`linea-${index}`}
-                className={`story-line ${indiceAudio === index ? "playing" : ""}`}
-                onMouseDown={handleMouseDown}
-                onMouseUp={(e) => handleMouseUpPlay(index, e)}
+                role="tablist"
+                className="flex md:grid md:grid-cols-3 gap-2 min-w-max md:min-w-0"
               >
-                {/* Capa Base: Mantiene el ancho y alto estructural SIEMPRE */}
-                <div className="story-line-content">
+                {MODES.map((m) => (
+                  <button
+                    key={m.id}
+                    role="tab"
+                    aria-selected={modo === m.id}
+                    onClick={() => setModo(m.id)}
+                    className={cn(
+                      "rounded-md border px-3 mt-1 py-1 text-left transition-colors whitespace-nowrap",
+                      modo === m.id
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border bg-card hover:border-foreground/30",
+                    )}
+                  >
+                    <span className="block text-sm font-medium">{m.label}</span>
+                    <span
+                      className={cn(
+                        "hidden text-[11px] sm:block mt-0.5",
+                        modo === m.id
+                          ? "text-background/70"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {m.detail}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Reading Board */}
+            <div
+              id="story-board"
+              className="flex-1 overflow-y-auto px-4 py-6 md:px-8 bg-muted/10 pb-40"
+            >
+              {modo === "escucha" && indiceAudio === -1 ? (
+                <div className="flex flex-col items-center py-12 text-center h-full justify-center">
+                  <Volume2 className="size-20 text-muted-foreground/30 mb-4" />
+                  <p className="font-serif text-2xl font-medium text-foreground">
+                    Modo Inmersión
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2 max-w-xs">
+                    Haz click en Play abajo para escuchar la historia de corrido
+                    sin ver el texto.
+                  </p>
+                </div>
+              ) : (
+                <ol className="space-y-1 max-w-3xl mx-auto">
+                  {lineas.map((s, i) => {
+                    const current = i === indiceAudio;
+                    return (
+                      <li key={i} id={`linea-${i}`}>
+                        <button
+                          type="button"
+                          onMouseDown={handleMouseDown}
+                          onMouseUp={(e) => handleMouseUpPlay(i, e)}
+                          aria-current={current ? "true" : undefined}
+                          className={cn(
+                            "grid w-full grid-cols-[1.75rem_1fr] md:grid-cols-[2.5rem_1fr] gap-x-2 rounded-xl px-2 py-3 md:px-4 text-left transition-all",
+                            current
+                              ? "bg-secondary/60 shadow-sm border border-border/50 scale-[1.01]"
+                              : "hover:bg-muted/40 border border-transparent",
+                          )}
+                        >
+                          <span className="pt-1.5 font-serif text-[13px] text-muted-foreground tabular-nums text-center opacity-60">
+                            {i + 1}
+                          </span>
+
+                          <span
+                            className={cn(
+                              "block transition-opacity",
+                              modo === "escucha" && !current
+                                ? "opacity-0"
+                                : "opacity-100",
+                            )}
+                          >
+                            {modo === "escucha" ? (
+                              /* Modo Escucha - Solo mostramos el texto si es el actual, pero igual atenuado */
+                              <span className="block font-serif text-[20px] md:text-2xl leading-[1.6] text-foreground/40 italic flex items-center min-h-[3rem]">
+                                Escuchando diálogo...
+                              </span>
+                            ) : (
+                              <>
+                                <span
+                                  className={cn(
+                                    "block font-serif text-[19px] md:text-2xl leading-[1.6] text-foreground transition-colors",
+                                    current && "text-primary font-bold",
+                                  )}
+                                  dangerouslySetInnerHTML={{
+                                    __html: resaltarPalabras(s.en),
+                                  }}
+                                />
+
+                                {modo === "lectura" && (
+                                  <span className="mt-1 block font-ipa text-[16px] md:text-lg text-primary/70 font-medium">
+                                    /{s.ipa}/
+                                  </span>
+                                )}
+
+                                {modo === "completo" && (
+                                  <span className="mt-1 block text-[14px] md:text-[15px] text-muted-foreground/90">
+                                    {s.es}
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </div>
+
+            {/* Floating Player */}
+            {lineas.length > 0 && (
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-xl flex items-center gap-3 rounded-2xl border border-border bg-card/95 p-3 shadow-xl backdrop-blur-md z-20 transition-all">
+                <button
+                  type="button"
+                  onClick={() => reproducirDesde(indiceAudio - 1)}
+                  className="rounded-xl p-2 text-muted-foreground hover:bg-muted hover:text-foreground active:scale-95 transition-all"
+                >
+                  <SkipBack className="size-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={toggleMute}
+                  className="flex size-12 shadow-md items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform hover:scale-105 active:scale-95"
+                >
+                  {isPlaying ? (
+                    <Pause className="size-5 fill-current" />
+                  ) : (
+                    <Play className="size-5 translate-x-px fill-current" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => reproducirDesde(indiceAudio + 1)}
+                  className="rounded-xl p-2 text-muted-foreground hover:bg-muted hover:text-foreground active:scale-95 transition-all"
+                >
+                  <SkipForward className="size-5" />
+                </button>
+
+                <div className="mx-2 hidden h-1.5 flex-1 overflow-hidden rounded-full bg-muted/60 sm:block relative cursor-pointer">
                   <div
-                    className="text-en"
+                    className="absolute top-0 left-0 h-full bg-foreground transition-all rounded-full"
                     style={{
-                      visibility: modo === "escucha" ? "hidden" : "visible",
-                    }}
-                    dangerouslySetInnerHTML={{
-                      __html: resaltarPalabras(linea.en),
+                      width: `${((indiceAudio + 1) / lineas.length) * 100}%`,
                     }}
                   />
-
-                  {/* Contenedor superpuesto para las traducciones e IPA (para que compartan espacio de altura exacto) */}
-                  <div className="story-translations-container">
-                    <div
-                      className="text-ipa story-translation-layer"
-                      style={{
-                        visibility: modo === "lectura" ? "visible" : "hidden",
-                      }}
-                    >
-                      {linea.ipa}
-                    </div>
-                    <div
-                      className="text-es story-translation-layer"
-                      style={{
-                        visibility: modo === "completo" ? "visible" : "hidden",
-                      }}
-                    >
-                      {linea.es}
-                    </div>
-                  </div>
                 </div>
+                <span className="ml-auto text-[11px] font-medium text-muted-foreground tabular-nums sm:ml-0 font-serif">
+                  {Math.max(0, indiceAudio + 1)}{" "}
+                  <span className="text-muted-foreground/40">/</span>{" "}
+                  {lineas.length}
+                </span>
 
-                {/* Capa Superior: Mensaje de inmersión centrado (Solo visible en Modo 3) */}
                 <div
-                  className="story-immersion-overlay"
-                  style={{
-                    display: modo === "escucha" ? "flex" : "none",
-                  }}
+                  className="flex rounded-md border border-input text-[11px] font-semibold bg-muted/20"
+                  role="group"
                 >
-                  <>
-                    <Headphones size={20} /> Escuchando audio...
-                  </>
+                  {RATES.map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => handleVelocidadChange(r)}
+                      className={cn(
+                        "px-2 py-1.5 tabular-nums transition-colors",
+                        velocidad === r
+                          ? "bg-foreground text-background shadow-xs rounded-md"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {r}×
+                    </button>
+                  ))}
                 </div>
               </div>
-            ))
-          )}
-        </div>
-      </div>
+            )}
+          </div>
+        )}
+      </main>
+
+      {/* Reproductor Real oculto */}
+      <audio
+        ref={audioPlayerRef}
+        onEnded={handleAudioEnded}
+        style={{ display: "none" }}
+      />
 
       <KindleSelection onRequestAnki={abrirAnkiDesdeFloating} />
-
       <ModalAnki
         isOpen={isModalOpen}
         onClose={() => {
@@ -733,7 +730,7 @@ export default function HistoriasPage() {
           cargarVocabulario();
         }}
         cartasIniciales={cartasPropuestas}
-        chatId={0}
+        chatId={historiaActiva || 0}
         origen="historia"
       />
     </div>

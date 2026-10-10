@@ -1,6 +1,8 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowUp, Layers, Volume2 } from "lucide-react";
 import ModalAnki, { type CartaAnki } from "../components/ModalAnki";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 // Los mensajes tienen un rol y un texto
 interface Mensaje {
@@ -32,23 +34,32 @@ export default function ChatPage({ selectedChatId }: ChatPageProps) {
     () => selectedChatId !== null,
   );
 
-  // Sincronizar estado cuando se cambia de chat antes de que React dibuje el DOM (para evitar parpadeos)
-  // Si son diferentes es porque cambié de chat
+  // Sincronizar estado cuando se cambia de chat antes de que React dibuje el DOM
   if (selectedChatId !== prevChatId) {
-    setPrevChatId(selectedChatId); // El prox renderizado es el nuevo chat
-    setMensajes([]); // vacio los mensajes del chat anterior
-    setInputTexto(""); // vacio el input
-    setIsEscribiendo(false); // la IA no esta escribiendo
-    setCargandoHistorial(!!selectedChatId); // cargando historial
+    setPrevChatId(selectedChatId);
+    setMensajes([]);
+    setInputTexto("");
+    setIsEscribiendo(false);
+    setCargandoHistorial(!!selectedChatId);
   }
 
-  /* 3. Referencias (Para manipular elementos físicos del DOM)
-  Es como el document.getElementById().
-  Le pone un puntero a ese div para poder manipularlo (ej: hacer scroll hacia abajo)*/
-  const chatBoxRef = useRef<HTMLDivElement>(null); // Scroll
-  const textareaRef = useRef<HTMLTextAreaElement>(null); // Autoajustar altura
+  const chatBoxRef = useRef<HTMLOListElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // 4. Transformar Markdown a HTML
+  // Utilidad de lectura (TTS)
+  const speak = (htmlText: string) => {
+    if (!window.speechSynthesis) return;
+
+    // Convert html to plain text
+    const temp = document.createElement("div");
+    temp.innerHTML = htmlText;
+    const textContext = temp.textContent || temp.innerText || "";
+
+    const utterance = new SpeechSynthesisUtterance(textContext);
+    utterance.lang = "en-US";
+    window.speechSynthesis.speak(utterance);
+  };
+
   const formatearMarkdown = (texto: string) => {
     // Se anulan <> para evitar inyeccion
     let html = texto
@@ -86,9 +97,7 @@ export default function ChatPage({ selectedChatId }: ChatPageProps) {
 
   // 5. Cargar historial cuando el chatId cambie
   useEffect(() => {
-    if (!selectedChatId) {
-      return;
-    }
+    if (!selectedChatId) return;
 
     // Cancela esta carga si el usuario cambia otra vez de chat.
     const controlador = new AbortController();
@@ -98,13 +107,8 @@ export default function ChatPage({ selectedChatId }: ChatPageProps) {
         const res = await fetch(`/chats/${selectedChatId}/mensajes`, {
           signal: controlador.signal,
         });
-
-        if (!res.ok) {
-          throw new Error(`No se pudo cargar el chat ${selectedChatId}`);
-        }
-
+        if (!res.ok) throw new Error(`Error ${selectedChatId}`);
         const data = await res.json();
-
         if (controlador.signal.aborted) return;
 
         if (data.length === 0) {
@@ -112,24 +116,21 @@ export default function ChatPage({ selectedChatId }: ChatPageProps) {
             {
               rol: "bot",
               texto:
-                "¡Hello! Soy tu tutor de inglés. ¿De qué hablaremos en esta sesión? 🚀",
+                "¡Hello! Soy tu tutor de inglés. ¿De qué hablaremos hoy?",
             },
           ]);
         } else {
           setMensajes(data);
         }
       } catch (error) {
-        if (controlador.signal.aborted) return;
-        console.error("Error cargando historial", error);
+        if (!controlador.signal.aborted)
+          console.error("Error cargando historial", error);
       } finally {
-        if (!controlador.signal.aborted) {
-          setCargandoHistorial(false);
-        }
+        if (!controlador.signal.aborted) setCargandoHistorial(false);
       }
     };
 
     cargarHistorial();
-
     return () => controlador.abort();
   }, [selectedChatId]); // Se ejecuta cuando una de las variables dentro de [] cambia su valor
 
@@ -233,77 +234,135 @@ export default function ChatPage({ selectedChatId }: ChatPageProps) {
   // Si no hay ningún chat seleccionado (pantalla inicial)
   if (!selectedChatId) {
     return (
-      <div className="chat-container empty-state">
-        <h2 className="chat-empty-title">
+      <div className="flex h-full flex-col items-center justify-center p-8 text-center text-muted-foreground w-full bg-background rounded-l-3xl shadow-sm border border-l-0 md:border-l-border">
+        <h2 className="font-serif text-2xl font-semibold text-foreground">
           Selecciona o crea un chat para comenzar
         </h2>
+        <p className="mt-2 text-sm max-w-sm">
+          Puedes crear un nuevo chat desde la barra lateral para practicar tu
+          inglés con TutorIA.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="chat-container">
-      <div className="header">
-        <h2>Tutor IA</h2>
-        <button
-          className="anki-btn"
+    <section className="flex flex-col min-w-0 flex-1 h-full max-h-screen bg-background md:rounded-l-3xl shadow-sm border md:border-l-border lg:overflow-hidden relative">
+      <header className="flex items-center gap-3 border-b border-border px-4 py-3 md:px-8 md:py-4 bg-background z-10 w-full shrink-0 md:rounded-tl-3xl">
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate font-serif text-lg font-semibold md:text-xl">
+            Tutor IA
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Conversación Libre con Gemini · {mensajes.length} mensajes
+          </p>
+        </div>
+        <Button
           onClick={extraerAAnki}
           disabled={cargandoAnki}
+          className="h-9 px-3 gap-2"
         >
           {cargandoAnki ? (
-            <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <Loader2 size={16} /> Analizando chat...
-            </span>
+            <Loader2 className="animate-spin size-4" />
           ) : (
-            "Extraer a Anki"
+            <Layers className="size-4" aria-hidden="true" />
           )}
-        </button>
-      </div>
+          <span className="hidden sm:inline">
+            {cargandoAnki ? "Analizando..." : "Exportar a Anki"}
+          </span>
+          <span className="sm:hidden">{cargandoAnki ? "..." : "Anki"}</span>
+        </Button>
+      </header>
 
-      {/*ref sirve para mover el scroll de ese div*/}
-      <div className="chat-box" ref={chatBoxRef}>
+      <ol
+        ref={chatBoxRef}
+        className="flex-1 space-y-6 overflow-y-auto px-4 py-6 md:px-8 bg-muted/20 scroll-smooth"
+      >
         {cargandoHistorial ? (
-          <p className="chat-loading">Cargando conversación…</p>
+          <div className="flex justify-center p-4">
+            <Loader2 className="animate-spin text-muted-foreground" />
+          </div>
         ) : (
-          mensajes.map((msg, idx) => (
-            //class "message user" o "message bot" según el rol
-            <div key={idx} className={`message ${msg.rol}`}>
-              {msg.rol === "bot" ? (
-                /* React obliga a usar dangerouslySetInnerHTML para inyectar HTML puro por seguridad
-                 *__html es el HTML que se va a inyectar, y se escribe asi para que no pase piola */
+          mensajes.map((m, idx) =>
+            m.rol === "user" ? (
+              <li key={idx} className="flex justify-end relative z-0">
+                <p className="max-w-[85%] sm:max-w-[75%] whitespace-pre-line rounded-[20px] rounded-br-sm bg-secondary px-4 py-2.5 text-[15px] leading-relaxed text-secondary-foreground shadow-sm">
+                  {m.texto}
+                </p>
+              </li>
+            ) : (
+              <li
+                key={idx}
+                className="max-w-2xl border-l-2 border-primary/60 pl-4 mb-4 relative z-0"
+              >
+                <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">Gemini</span>
+                  <button
+                    type="button"
+                    onClick={() => speak(m.texto)}
+                    className="rounded p-0.5 transition-colors hover:text-primary hover:bg-primary/10"
+                    aria-label="Escuchar respuesta"
+                  >
+                    <Volume2 className="size-3.5" aria-hidden="true" />
+                  </button>
+                </div>
                 <div
+                  className="whitespace-pre-line font-serif text-[17px] leading-[1.7] text-foreground [&_h6]:font-bold [&_h6]:mt-2 [&_h5]:font-bold [&_h4]:font-bold [&_h3]:font-bold [&_h3]:text-lg [&_em]:font-sans [&_em]:not-italic [&_em]:bg-muted [&_em]:rounded [&_em]:px-1"
                   dangerouslySetInnerHTML={{
-                    __html: formatearMarkdown(msg.texto),
+                    __html: formatearMarkdown(m.texto),
                   }}
                 />
-              ) : (
-                // Texto plano para el usuario para evitar XSS
-                msg.texto
-              )}
-            </div>
-          ))
+              </li>
+            ),
+          )
         )}
 
         {isEscribiendo && (
-          <div className="message bot">
-            <i>Escribiendo...</i>
-          </div>
+          <li className="max-w-2xl border-l-2 border-primary/60 pl-4 mb-4">
+            <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Gemini</span>
+            </div>
+            <p className="whitespace-pre-line font-serif text-[15px] leading-relaxed text-muted-foreground italic animate-pulse">
+              Escribiendo...
+            </p>
+          </li>
         )}
-      </div>
+      </ol>
 
-      <div className="input-area">
-        <textarea
-          ref={textareaRef}
-          value={inputTexto}
-          onChange={handleInput}
-          onKeyDown={handleKeyDown}
-          placeholder="Escribe tu mensaje aquí... (Shift + Enter para salto de línea)"
-          rows={1} //la caja parte con tamaño de 1 linea
-        />
-        <button className="send-btn" onClick={enviarMensaje}>
-          Enviar
-        </button>
-      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          enviarMensaje();
+        }}
+        className="border-t border-border p-3 md:px-8 md:py-4 bg-background w-full shrink-0 md:rounded-bl-3xl"
+      >
+        <div className="flex items-end gap-2 rounded-xl border border-input bg-card p-2 focus-within:border-ring focus-within:ring-1 focus-within:ring-ring transition-shadow max-w-4xl mx-auto shadow-sm">
+          <label htmlFor="chat-input" className="sr-only">
+            Escribe un mensaje
+          </label>
+          <textarea
+            id="chat-input"
+            ref={textareaRef}
+            rows={1}
+            value={inputTexto}
+            onChange={handleInput}
+            onKeyDown={handleKeyDown}
+            placeholder="Escribe en inglés o pregunta una duda... (Shift+Enter para nueva línea)"
+            className="max-h-40 min-h-[40px] flex-1 resize-none bg-transparent px-3 py-2 text-[15px] outline-none placeholder:text-muted-foreground/70 disabled:cursor-not-allowed"
+            disabled={cargandoHistorial || isEscribiendo}
+          />
+          <Button
+            type="button"
+            onClick={enviarMensaje}
+            size="icon-lg"
+            aria-label="Enviar"
+            disabled={!inputTexto.trim() || isEscribiendo}
+            className="mb-0.5 h-10 w-10 shrink-0 rounded-lg"
+          >
+            <ArrowUp className="size-5" />
+          </Button>
+        </div>
+      </form>
 
       <ModalAnki
         isOpen={isModalOpen}
@@ -312,6 +371,6 @@ export default function ChatPage({ selectedChatId }: ChatPageProps) {
         chatId={selectedChatId}
         origen="chat"
       />
-    </div>
+    </section>
   );
 }
