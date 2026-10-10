@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom"; // link equivale a <a> pero sin recargar la página
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   MessageSquarePlus,
   MessageSquare,
@@ -8,7 +8,14 @@ import {
   Puzzle,
   Pencil,
   Trash2,
+  House,
+  Languages,
+  TextCursorInput,
+  AudioLines,
+  Menu,
+  X,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // Los chats tienen id y titulo
 interface Chat {
@@ -24,7 +31,13 @@ interface SidebarProps {
   onSelectChat: (chatId: number | null) => void;
 }
 
-// desestructuro las props para usar las vars directamente
+export const sections = [
+  { href: "/", label: "Chats", icon: MessageSquare },
+  { href: "/historias", label: "Historias", icon: BookOpen },
+  { href: "/cloze", label: "Cloze", icon: TextCursorInput },
+  { href: "/fonetica", label: "Fonética", icon: AudioLines },
+];
+
 export default function Sidebar({
   selectedChatId,
   onSelectChat,
@@ -34,6 +47,7 @@ export default function Sidebar({
   const [isMobileOpen, setIsMobileOpenState] = useState(
     () => localStorage.getItem("sidebarOpen") === "true",
   );
+
   const setIsMobileOpen = (open: boolean) => {
     setIsMobileOpenState(open);
     localStorage.setItem("sidebarOpen", open ? "true" : "false");
@@ -125,155 +139,188 @@ export default function Sidebar({
 
   return (
     <>
+      {/* Mobile Toggle Button */}
       <button
-        className={`mobile-menu-btn ${isMobileOpen ? "hidden" : ""}`}
+        className={cn(
+          "fixed top-4 left-4 z-50 rounded-md bg-sidebar p-2 text-sidebar-foreground shadow-md transition-all md:hidden",
+          isMobileOpen && "hidden",
+        )}
         onClick={() => setIsMobileOpen(true)}
       >
-        ☰
+        <Menu size={24} />
       </button>
+
+      {/* Mobile Overlay */}
       {isMobileOpen && (
         <div
-          className="sidebar-overlay"
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
           onClick={() => setIsMobileOpen(false)}
-        ></div>
+        />
       )}
-      <div className={`sidebar ${isMobileOpen ? "open" : ""}`}>
-        <div className="sidebar-actions">
-          {/* if: Si no mostramos el formulario, mostramos los botones de nuevo chat, historias, etc */}
-          {!mostrarFormulario ? (
-            <>
-              {isChatPage ? (
-                <div className="sidebar-link">
-                  <button
-                    className="new-chat-btn btn-compact"
-                    onClick={() => setMostrarFormulario(true)}
-                  >
-                    <MessageSquarePlus size={18} /> Nuevo Chat
-                  </button>
-                </div>
-              ) : (
-                <Link to="/" className="sidebar-link">
-                  <button className="new-chat-btn btn-compact btn-back">
-                    <MessageSquare size={18} /> Volver al Chat
-                  </button>
-                </Link>
-              )}
-              {/* Link reemplaza a las etiquetas <a> para navegar sin recargar la página */}
-              <Link to="/historias" className="sidebar-link">
-                <button className="new-chat-btn btn-compact btn-historias">
-                  <BookOpen size={18} /> Historias IA
-                </button>
-              </Link>
 
-              <Link to="/fonetica" className="sidebar-link">
-                <button className="new-chat-btn btn-compact btn-fonetica">
-                  <Speech size={18} /> Fonética
-                </button>
-              </Link>
-
-              <Link to="/cloze" className="sidebar-link">
-                <button className="new-chat-btn btn-compact">
-                  <Puzzle size={18} /> Ejercicios
-                </button>
-              </Link>
-            </>
-          ) : (
-            /* Formulario para nuevo chat */
-            <div className="new-chat-form">
-              <input
-                type="text"
-                placeholder="Nombre del chat..."
-                className="new-chat-input"
-                // con cada tecleo, se actualiza el componente y tecnicamente se actualiza todo el sidebar
-                // pero por el virtualDOM, solo se actualiza el input (unica diferencia)
-                value={nuevoTitulo} // inicialmente es ""
-                onChange={(e) => setNuevoTitulo(e.target.value)} // Actualizo nuevoTitulo con cada tecleo
-                onKeyDown={(e) => e.key === "Enter" && crearChat()} // Si presiono Enter, creo el chat
-                autoFocus // Indica que el cursor este dentro del input listo para escribir
-              />
-              <div className="new-chat-actions">
-                <button className="new-chat-action confirm" onClick={crearChat}>
-                  Crear
-                </button>
-                <button
-                  className="new-chat-action cancel"
-                  onClick={() => setMostrarFormulario(false)}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          )}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex h-dvh w-72 flex-col border-r border-sidebar-border bg-sidebar px-4 py-6 transition-transform duration-300 md:sticky md:top-0 md:translate-x-0 hidden md:flex shrink-0",
+          isMobileOpen ? "translate-x-0 flex w-72" : "-translate-x-full",
+        )}
+      >
+        <div className="flex items-center justify-between mb-8">
+          <Link
+            to="/"
+            className="px-2 font-serif text-2xl font-semibold italic text-primary"
+            onClick={() => setIsMobileOpen(false)}
+          >
+            TutorIA
+          </Link>
+          <button className="md:hidden" onClick={() => setIsMobileOpen(false)}>
+            <X size={24} className="text-muted-foreground" />
+          </button>
         </div>
 
-        <div className="chat-list">
-          {/* Recorremos el arreglo de chats y dibujamos un div por cada uno */}
-          {isChatPage &&
-            chats.map((chat) => (
-              // key es para identificar cada elemento de la lista y que React no se confunda al redibujar
-              <div
-                key={chat.id}
-                className={`chat-item ${selectedChatId === chat.id ? "active" : ""}`}
-                onClick={() => {
-                  onSelectChat(chat.id);
-                  setIsMobileOpen(false);
-                  navigate("/");
-                }}
-                role="button" // Indica que el div se comporta como un boton
-                // No hago un boton directamente para no tener un boton dentro de otro boton (eliminar y renombrar)
-                tabIndex={0} // navegable con el tab
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    onSelectChat(chat.id);
-                    setIsMobileOpen(false);
-                    navigate("/");
-                  }
-                }}
-              >
-                {/* Si estamos editando este chat, mostramos un input, si no, mostramos el título */}
-                {editandoId === chat.id ? (
-                  <input
-                    type="text"
-                    value={tituloEditado}
-                    onChange={(e) => setTituloEditado(e.target.value)}
-                    onBlur={() => guardarEdicion(chat.id)} // Guarda los cambios al clicear fuera del input
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && guardarEdicion(chat.id)
-                    }
-                    autoFocus
-                    className="edit-chat-input"
-                  />
-                ) : (
-                  <span className="chat-item-title">{chat.titulo}</span> //span solo contiene el nombre del chat
+        <nav
+          aria-label="Secciones"
+          className="flex flex-col gap-1 mb-8 shrink-0"
+        >
+          {sections.map(({ href, label, icon: Icon }) => {
+            const active = location.pathname === href;
+            return (
+              <Link
+                key={href}
+                to={href}
+                onClick={() => setIsMobileOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-2 py-2 text-sm transition-colors",
+                  active
+                    ? "bg-sidebar-accent font-medium text-foreground"
+                    : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
                 )}
+              >
+                <Icon
+                  className={cn("size-4", active && "text-primary")}
+                  aria-hidden="true"
+                />
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
 
-                <div className="chat-item-actions">
+        {/* Chats Section */}
+        {isChatPage && (
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <div className="flex items-center justify-between px-2 pb-2 border-b border-sidebar-border mb-2 shrink-0">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Historial de Chats
+              </span>
+              <button
+                onClick={() => setMostrarFormulario(true)}
+                className="text-muted-foreground hover:text-primary transition-colors"
+                title="Nuevo Chat"
+              >
+                <MessageSquarePlus size={16} />
+              </button>
+            </div>
+
+            {mostrarFormulario && (
+              <div className="px-2 py-2 mb-2 bg-sidebar-accent/30 rounded-md shrink-0">
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="Nuevo chat..."
+                  value={nuevoTitulo}
+                  onChange={(e) => setNuevoTitulo(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && crearChat()}
+                  className="w-full bg-background border border-border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary mb-2"
+                />
+                <div className="flex gap-2">
                   <button
-                    className="action-btn"
-                    title="Renombrar"
-                    onClick={(e) => {
-                      e.stopPropagation(); // Evita que se propague el evento al div padre y se seleccione el chat
-                      setEditandoId(chat.id);
-                      setTituloEditado(chat.titulo); // guardo el titulo actual en el input
-                    }}
+                    onClick={crearChat}
+                    className="flex-1 bg-primary text-primary-foreground text-xs py-1 rounded hover:bg-primary/90 transition-colors"
                   >
-                    <Pencil size={14} />
+                    Crear
                   </button>
                   <button
-                    className="action-btn"
-                    title="Eliminar"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      eliminarChat(chat.id);
-                    }}
+                    onClick={() => setMostrarFormulario(false)}
+                    className="flex-1 bg-muted text-muted-foreground text-xs py-1 rounded hover:bg-muted/80 transition-colors"
                   >
-                    <Trash2 size={14} />
+                    Cancelar
                   </button>
                 </div>
               </div>
-            ))}
+            )}
+
+            <div className="flex-1 overflow-y-auto pr-1 space-y-1">
+              {chats.map((chat) => {
+                const active = selectedChatId === chat.id;
+                return (
+                  <div
+                    key={chat.id}
+                    className={cn(
+                      "group flex items-center justify-between gap-2 rounded-md px-2 py-2 text-sm transition-colors cursor-pointer",
+                      active
+                        ? "bg-sidebar-accent font-medium text-foreground"
+                        : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
+                    )}
+                    onClick={() => {
+                      onSelectChat(chat.id);
+                      setIsMobileOpen(false);
+                      navigate("/");
+                    }}
+                  >
+                    {editandoId === chat.id ? (
+                      <input
+                        type="text"
+                        value={tituloEditado}
+                        onChange={(e) => setTituloEditado(e.target.value)}
+                        onBlur={() => guardarEdicion(chat.id)}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && guardarEdicion(chat.id)
+                        }
+                        autoFocus
+                        className="flex-1 bg-background border border-primary/50 text-foreground px-1 py-[2px] text-sm rounded outline-none w-full min-w-0"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <span className="truncate flex-1">{chat.titulo}</span>
+                    )}
+
+                    <div className="hidden group-hover:flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditandoId(chat.id);
+                          setTituloEditado(chat.titulo);
+                        }}
+                        className="p-1 hover:text-primary transition-colors"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          eliminarChat(chat.id);
+                        }}
+                        className="p-1 hover:text-destructive transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-auto border-t border-sidebar-border pt-4 shrink-0">
+          <div className="flex items-center justify-between rounded-md px-2 py-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-3">
+              <Languages className="size-4" aria-hidden="true" />
+              <span>TutorIA v2</span>
+            </div>
+          </div>
         </div>
-      </div>
+      </aside>
     </>
   );
 }

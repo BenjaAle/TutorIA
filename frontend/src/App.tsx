@@ -121,7 +121,7 @@ function App() {
   }
 
   const MainLayout = ({ children }: { children: React.ReactNode }) => (
-    <div className="app-container">
+    <div className="flex h-dvh w-full overflow-hidden bg-background font-sans">
       <Sidebar
         selectedChatId={selectedChatId}
         // Aqui le paso la funcion setSelectedChatId al Sidebar para que pueda seleccionar un chat
@@ -129,7 +129,9 @@ function App() {
         onSelectChat={setSelectedChatId}
       />
 
-      {children}
+      <main className="flex-1 overflow-y-auto relative flex flex-col">
+        {children}
+      </main>
     </div>
   );
 
