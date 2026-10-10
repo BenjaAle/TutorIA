@@ -78,6 +78,32 @@ export default function ModalAnki({
     );
   };
 
+  const handleExampleChange = (
+    exampleIndex: number,
+    lang: "ejemplo_ingles" | "ejemplo_espanol",
+    value: string,
+  ) => {
+    const card = cartas[currentIndex];
+    if (!card) return;
+    const examples = (card[lang] || "").split("|").map((s) => s.trim());
+
+    while (examples.length <= exampleIndex) examples.push("");
+
+    const newExamplesArray = [...examples];
+    newExamplesArray[exampleIndex] = value;
+    handleFieldChange(lang, newExamplesArray.join(" | "));
+  };
+
+  const handleAddExample = () => {
+    const card = cartas[currentIndex];
+    if (!card) return;
+    const currentEn = card.ejemplo_ingles ? card.ejemplo_ingles.trim() : "";
+    const currentEs = card.ejemplo_espanol ? card.ejemplo_espanol.trim() : "";
+
+    handleFieldChange("ejemplo_ingles", currentEn ? currentEn + " | " : "");
+    handleFieldChange("ejemplo_espanol", currentEs ? currentEs + " | " : "");
+  };
+
   const handleEliminarCarta = () => {
     setCartas((prev) => {
       const newCartas = prev.filter((_, i) => i !== currentIndex);
@@ -256,33 +282,80 @@ export default function ModalAnki({
             </div>
 
             <fieldset>
-              <legend className="mb-1.5 text-xs font-medium text-muted-foreground">
-                Oración Ejemplo
+              <legend className="mb-4 text-xs font-medium text-muted-foreground flex items-center justify-between w-full">
+                <span>
+                  Frases de ejemplo{" "}
+                  <span className="font-normal border rounded px-1 text-[10px] ml-1 bg-muted">
+                    reverso
+                  </span>
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="h-6 w-6 text-muted-foreground mr-1"
+                  onClick={handleAddExample}
+                  title="Añadir frase"
+                >
+                  +
+                </Button>
               </legend>
-              <div className="space-y-3">
-                <div className="grid grid-cols-[1.25rem_1fr] gap-x-2 gap-y-1.5">
-                  <span className="pt-2 font-serif text-sm text-muted-foreground">
-                    EN
-                  </span>
-                  <Input
-                    aria-label="Ejemplo en inglés"
-                    value={card?.ejemplo_ingles || ""}
-                    onChange={(e) =>
-                      handleFieldChange("ejemplo_ingles", e.target.value)
-                    }
-                  />
-                  <span className="pt-2 font-serif text-sm text-muted-foreground">
-                    ES
-                  </span>
-                  <Input
-                    aria-label="Traducción en español"
-                    value={card?.ejemplo_espanol || ""}
-                    onChange={(e) =>
-                      handleFieldChange("ejemplo_espanol", e.target.value)
-                    }
-                    className="bg-muted/60 text-muted-foreground"
-                  />
-                </div>
+              <div className="space-y-4">
+                {(() => {
+                  const englishExamples = (card?.ejemplo_ingles || "")
+                    .split("|")
+                    .map((s) => s.trim());
+                  const spanishExamples = (card?.ejemplo_espanol || "")
+                    .split("|")
+                    .map((s) => s.trim());
+                  const count = Math.max(
+                    englishExamples.length,
+                    spanishExamples.length,
+                    1,
+                  );
+
+                  return Array.from({ length: count }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="grid grid-cols-[1.75rem_1fr] gap-x-2 gap-y-1.5 focus-within:ring-1 ring-border p-2 -mx-2 rounded-md transition-all"
+                    >
+                      <span
+                        className="pt-2 flex justify-center font-serif text-[11px] font-bold text-muted-foreground/50 border-r border-muted pr-1"
+                        title={`Ejemplo ${i + 1}`}
+                      >
+                        EN
+                      </span>
+                      <Input
+                        aria-label={`Ejemplo ${i + 1} en inglés`}
+                        value={englishExamples[i] || ""}
+                        placeholder="Ejemplo en inglés..."
+                        className="h-8 shadow-none"
+                        onChange={(e) =>
+                          handleExampleChange(
+                            i,
+                            "ejemplo_ingles",
+                            e.target.value,
+                          )
+                        }
+                      />
+                      <span className="pt-2 flex justify-center font-serif text-[11px] font-bold text-muted-foreground/50 border-r border-muted pr-1">
+                        ES
+                      </span>
+                      <Input
+                        aria-label={`Traducción ${i + 1} en español`}
+                        value={spanishExamples[i] || ""}
+                        placeholder="Traducción en español..."
+                        onChange={(e) =>
+                          handleExampleChange(
+                            i,
+                            "ejemplo_espanol",
+                            e.target.value,
+                          )
+                        }
+                        className="bg-muted/30 text-muted-foreground h-8 shadow-none border-dashed border-t-0 focus-visible:border-solid focus-visible:border-t"
+                      />
+                    </div>
+                  ));
+                })()}
               </div>
             </fieldset>
 
