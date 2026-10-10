@@ -14,6 +14,7 @@ import HistoriasPage from "./pages/HistoriasPage.tsx";
 import FoneticaPage from "./pages/FoneticaPage.tsx";
 import ClozePage from "./pages/ClozePage.tsx";
 import HomePage from "./pages/HomePage.tsx";
+import { Loader2 } from "lucide-react";
 import "./styles/style.css";
 import "./styles/chats.css";
 
@@ -111,17 +112,9 @@ function App() {
 
   if (loading) {
     return (
-      <div
-        style={{
-          height: "100vh",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#1a1a1a",
-          color: "white",
-        }}
-      >
-        <h2>Cargando...</h2>
+      <div className="flex h-dvh w-full flex-col items-center justify-center bg-background text-muted-foreground gap-3 font-sans">
+        <Loader2 className="size-8 animate-spin text-primary" />
+        <h2 className="text-sm font-medium">Cargando sesión...</h2>
       </div>
     );
   }

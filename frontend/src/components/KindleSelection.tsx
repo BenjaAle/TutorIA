@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-// 🪄 Componente Aislado para manejar la selección sin re-renderizar HistoriasPage
+// Componente Aislado para manejar la selección sin re-renderizar HistoriasPage
 const KindleSelection = ({
   onRequestAnki,
 }: {

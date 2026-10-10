@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import {
   Check,
-  RotateCcw,
   ChevronLeft,
   ChevronRight,
   Trash2,
@@ -17,7 +16,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input, Label, Select } from "@/components/field";
-import { cn } from "@/lib/utils";
 
 export interface CartaAnki {
   frente: string;

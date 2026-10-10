@@ -1,20 +1,18 @@
 import { Link } from "react-router-dom";
-import { MessageSquare, BookOpen, Image as ImageIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { MessageSquare, BookOpen } from "lucide-react";
 
 export default function HomePage() {
   return (
     <main className="flex h-full flex-col overflow-y-auto">
       <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-12 px-6 py-10 md:grid md:grid-cols-[1fr_1.1fr] md:items-center md:gap-16 md:py-16">
         <section>
-          <p className="font-serif text-lg italic text-primary">Cuaderno</p>
+          <p className="font-serif text-lg italic text-primary"></p>
           <h1 className="mt-6 font-serif text-4xl font-semibold leading-[1.1] tracking-tight text-balance md:text-5xl text-foreground">
             Tu inglés, en un solo cuaderno.
           </h1>
           <p className="mt-5 max-w-md leading-relaxed text-muted-foreground text-pretty">
-            Conversa, escucha historias, practica con huecos y entrena tu
-            pronunciación. Elige tu ritmo y nosotros nos encargamos del resto
-            mediante Inteligencia Artificial adaptativa.
+            Conversa, escucha historias, entrena con ejercicios y practica tu
+            pronunciación. Elige tu ritmo y la IA se encarga del resto.
           </p>
           <dl className="mt-10 grid max-w-sm grid-cols-3 gap-4 border-t border-border pt-6 text-sm">
             <div>
@@ -57,9 +55,9 @@ export default function HomePage() {
                 className="group flex flex-col gap-2 rounded-xl border border-border p-4 transition-colors hover:border-primary/50 hover:bg-primary/5"
               >
                 <BookOpen className="size-6 text-blue-500 group-hover:scale-110 transition-transform" />
-                <span className="font-medium">Lectura Bilingüe</span>
+                <span className="font-medium">Ir a Lectura</span>
                 <span className="text-xs text-muted-foreground">
-                  Lee cuentos adaptados e inyecta palabras a tu mazo.
+                  Lee cuentos personalizados e incorpora palabras a tu mazo.
                 </span>
               </Link>
             </div>

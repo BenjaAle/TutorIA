@@ -1,10 +1,7 @@
 import { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { Link } from "react-router-dom";
 import {
-  MessageSquare,
   BookOpen,
-  Speech,
-  Puzzle,
   Pin,
   PinOff,
   Pencil,
@@ -371,7 +368,7 @@ export default function HistoriasPage() {
           </Link>
         </div>
 
-        <div className="flex-1 overflow-y-auto w-full">
+        <div className="flex-1 overflow-y-auto w-full scrollbar-hide">
           <div className="p-5 border-b border-border">
             <h3 className="font-serif text-lg font-semibold mb-4">
               Nueva Historia
@@ -443,10 +440,10 @@ export default function HistoriasPage() {
                     <button
                       onClick={() => cargarHistoria(h.id)}
                       className={cn(
-                        "w-full flex items-center justify-between gap-2 border border-transparent px-3 py-2.5 text-left rounded-md transition-colors hover:bg-muted/60",
+                        "w-full flex items-center justify-between gap-2 px-4 py-2.5 text-left rounded-full transition-colors",
                         historiaActiva === h.id
-                          ? "bg-muted font-medium text-foreground"
-                          : "text-muted-foreground font-normal",
+                          ? "bg-blue-100 font-semibold text-blue-800 dark:bg-blue-900/40 dark:text-blue-200 shadow-sm"
+                          : "text-muted-foreground font-normal hover:bg-muted/60 hover:text-foreground",
                       )}
                     >
                       <span className="truncate flex items-center gap-2">
@@ -545,7 +542,7 @@ export default function HistoriasPage() {
               <BookOpen className="size-10" />
             </div>
             <h2 className="font-serif text-2xl font-semibold text-foreground">
-              Lectura Bilingüe
+              Lectura
             </h2>
             <p className="mt-2 text-sm max-w-sm">
               Genera una nueva historia sobre lo que quieras a la izquierda, o
@@ -635,7 +632,7 @@ export default function HistoriasPage() {
                           >
                             {modo === "escucha" ? (
                               /* Modo Escucha - Solo mostramos el texto si es el actual, pero igual atenuado */
-                              <span className="block font-serif text-[20px] md:text-2xl leading-[1.6] text-foreground/40 italic flex items-center min-h-[3rem]">
+                              <span className="font-serif text-[20px] md:text-2xl leading-[1.6] text-foreground/40 italic flex items-center min-h-[3rem]">
                                 Escuchando diálogo...
                               </span>
                             ) : (

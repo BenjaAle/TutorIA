@@ -2,7 +2,6 @@ import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { Loader2, ArrowUp, Layers, Volume2 } from "lucide-react";
 import ModalAnki, { type CartaAnki } from "../components/ModalAnki";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 // Los mensajes tienen un rol y un texto
 interface Mensaje {
@@ -347,7 +346,7 @@ export default function ChatPage({ selectedChatId }: ChatPageProps) {
             value={inputTexto}
             onChange={handleInput}
             onKeyDown={handleKeyDown}
-            placeholder="Escribe en inglés o pregunta una duda... (Shift+Enter para nueva línea)"
+            placeholder="Escribe en inglés o pregunta una duda..."
             className="max-h-40 min-h-[40px] flex-1 resize-none bg-transparent px-3 py-2 text-[15px] outline-none placeholder:text-muted-foreground/70 disabled:cursor-not-allowed"
             disabled={cargandoHistorial || isEscribiendo}
           />

@@ -4,8 +4,6 @@ import {
   MessageSquarePlus,
   MessageSquare,
   BookOpen,
-  Speech,
-  Puzzle,
   Pencil,
   Trash2,
   House,
@@ -163,7 +161,7 @@ export default function Sidebar({
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-dvh w-72 flex-col border-r border-sidebar-border bg-sidebar px-4 py-6 transition-transform duration-300 md:sticky md:top-0 md:translate-x-0 hidden md:flex shrink-0",
+          "fixed inset-y-0 left-0 z-50 h-dvh w-72 flex-col border-r border-sidebar-border bg-background px-4 py-6 transition-transform duration-300 md:sticky md:top-0 md:translate-x-0 hidden md:flex shrink-0 shadow-lg md:shadow-none overflow-y-auto scrollbar-hide",
           isMobileOpen ? "translate-x-0 flex w-72" : "-translate-x-full",
         )}
       >
@@ -192,14 +190,17 @@ export default function Sidebar({
                 to={href}
                 onClick={() => setIsMobileOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-2 py-2 text-sm transition-colors",
+                  "flex items-center gap-3 rounded-full px-4 py-2.5 text-sm transition-colors",
                   active
-                    ? "bg-sidebar-accent font-medium text-foreground"
-                    : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
+                    ? "bg-blue-100 font-semibold text-blue-800 dark:bg-blue-900/40 dark:text-blue-200"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
                 <Icon
-                  className={cn("size-4", active && "text-primary")}
+                  className={cn(
+                    "size-4",
+                    active && "text-blue-800 dark:text-blue-200",
+                  )}
                   aria-hidden="true"
                 />
                 {label}
@@ -210,7 +211,7 @@ export default function Sidebar({
 
         {/* Chats Section */}
         {isChatPage && (
-          <div className="flex flex-col flex-1 overflow-hidden">
+          <div className="flex flex-col mb-4">
             <div className="flex items-center justify-between px-2 pb-2 border-b border-sidebar-border mb-2 shrink-0">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Historial de Chats
@@ -225,7 +226,7 @@ export default function Sidebar({
             </div>
 
             {mostrarFormulario && (
-              <div className="px-2 py-2 mb-2 bg-sidebar-accent/30 rounded-md shrink-0">
+              <div className="px-2 py-2 mb-2 bg-muted/30 rounded-md shrink-0">
                 <input
                   type="text"
                   autoFocus
@@ -252,17 +253,17 @@ export default function Sidebar({
               </div>
             )}
 
-            <div className="flex-1 overflow-y-auto pr-1 space-y-1">
+            <div className="pr-1 space-y-1">
               {chats.map((chat) => {
                 const active = selectedChatId === chat.id;
                 return (
                   <div
                     key={chat.id}
                     className={cn(
-                      "group flex items-center justify-between gap-2 rounded-md px-2 py-2 text-sm transition-colors cursor-pointer",
+                      "group flex items-center justify-between gap-2 rounded-full px-4 py-2 text-sm transition-colors cursor-pointer",
                       active
-                        ? "bg-sidebar-accent font-medium text-foreground"
-                        : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
+                        ? "bg-blue-100 font-semibold text-blue-800 dark:bg-blue-900/40 dark:text-blue-200"
+                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                     )}
                     onClick={() => {
                       onSelectChat(chat.id);
