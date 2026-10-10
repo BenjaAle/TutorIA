@@ -325,6 +325,34 @@ export default function HistoriasPage() {
     window.getSelection()?.removeAllRanges();
   };
 
+  // Atajos de teclado
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(tag)) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (audioPlayerRef.current?.src) {
+          if (audioPlayerRef.current.paused) {
+            audioPlayerRef.current.play();
+            setIsPlaying(true);
+          } else {
+            audioPlayerRef.current.pause();
+            setIsPlaying(false);
+          }
+        }
+      }
+
+      if (e.code === "Digit1" || e.code === "Numpad1") setModo("completo");
+      if (e.code === "Digit2" || e.code === "Numpad2") setModo("lectura");
+      if (e.code === "Digit3" || e.code === "Numpad3") setModo("escucha");
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [indiceAudio, lineas]);
+
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-background font-sans">
       {/* SIDEBAR */}
@@ -582,14 +610,12 @@ export default function HistoriasPage() {
                   {lineas.map((s, i) => {
                     const current = i === indiceAudio;
                     return (
-                      <li key={i} id={`linea-${i}`}>
-                        <button
-                          type="button"
+                      <li key={i} id={`linea-${i}`} className="story-line">
+                        <div
                           onMouseDown={handleMouseDown}
                           onMouseUp={(e) => handleMouseUpPlay(i, e)}
-                          aria-current={current ? "true" : undefined}
                           className={cn(
-                            "grid w-full grid-cols-[1.75rem_1fr] md:grid-cols-[2.5rem_1fr] gap-x-2 rounded-xl px-2 py-3 md:px-4 text-left transition-all",
+                            "grid w-full cursor-text grid-cols-[1.75rem_1fr] md:grid-cols-[2.5rem_1fr] gap-x-2 rounded-xl px-2 py-3 md:px-4 text-left transition-all",
                             current
                               ? "bg-secondary/60 shadow-sm border border-border/50 scale-[1.01]"
                               : "hover:bg-muted/40 border border-transparent",
@@ -616,7 +642,7 @@ export default function HistoriasPage() {
                               <>
                                 <span
                                   className={cn(
-                                    "block font-serif text-[19px] md:text-2xl leading-[1.6] text-foreground transition-colors",
+                                    "text-en block font-serif text-[19px] md:text-2xl leading-[1.6] text-foreground transition-colors",
                                     current && "text-primary font-bold",
                                   )}
                                   dangerouslySetInnerHTML={{
@@ -626,7 +652,7 @@ export default function HistoriasPage() {
 
                                 {modo === "lectura" && (
                                   <span className="mt-1 block font-ipa text-[16px] md:text-lg text-primary/70 font-medium">
-                                    /{s.ipa}/
+                                    &nbsp; {s.ipa} &nbsp;
                                   </span>
                                 )}
 
@@ -638,7 +664,7 @@ export default function HistoriasPage() {
                               </>
                             )}
                           </span>
-                        </button>
+                        </div>
                       </li>
                     );
                   })}
