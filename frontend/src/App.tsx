@@ -13,6 +13,7 @@ import ChatPage from "./pages/ChatPage.tsx";
 import HistoriasPage from "./pages/HistoriasPage.tsx";
 import FoneticaPage from "./pages/FoneticaPage.tsx";
 import ClozePage from "./pages/ClozePage.tsx";
+import HomePage from "./pages/HomePage.tsx";
 import "./styles/style.css";
 import "./styles/chats.css";
 
@@ -34,13 +35,13 @@ function ChatRouteSync({
 
     // Si no hay id del chat seleccionado, o si el id del chat seleccionado no es un número, navega a la página principal
     if (!chatId || Number.isNaN(parsedChatId)) {
-      navigate("/", { replace: true }); // Navega a la página principal
+      navigate("/chats", { replace: true }); // Navega a la página de chats
       return;
     }
 
     onSelectChat(parsedChatId); // Actualiza el estado del chat seleccionado
     // dispara setSelectedChatId(parsedChatId) accionando el useEffect de App.tsx (ie renderizando la pagina)
-    navigate("/", { replace: true }); // Navega a la página principal.
+    navigate("/chats", { replace: true }); // Navega a la página de chats.
     // replace: true para que no pueda volver una pagina atras y caer en un bucle infinito de ir atras a adelante
   }, [chatId, navigate, onSelectChat]);
 
@@ -52,19 +53,29 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
 import { Login } from "./components/Login";
 
-// Interceptar fetch GLOBAL para enviar token en Headers siempre
+// Interceptar fetch GLOBAL para enviar token en Headers siempre (SOLO a nuestro backend)
 const originalFetch = window.fetch;
 window.fetch = async (...args) => {
-  const [_, config] = args;
-  const token = await auth.currentUser?.getIdToken();
-  if (token) {
-    if (config) {
-      config.headers = {
-        ...config.headers,
-        Authorization: `Bearer ${token}`,
-      };
-    } else {
-      args[1] = { headers: { Authorization: `Bearer ${token}` } };
+  const [url, config] = args;
+
+  // Solo inyectar Token si la request va hacia nuestro backend (rutas relativas que Vite redirecciona)
+  // Ignorar requests a otros dominios (ej. Firebase identitytoolkit, gstatic, pexels)
+  const urlString =
+    typeof url === "string" ? url : url instanceof Request ? url.url : "";
+  const isBackendRequest =
+    urlString.startsWith("/") || urlString.startsWith("http://127.0.0.1");
+
+  if (isBackendRequest) {
+    const token = await auth.currentUser?.getIdToken();
+    if (token) {
+      if (config) {
+        config.headers = {
+          ...config.headers,
+          Authorization: `Bearer ${token}`,
+        };
+      } else {
+        args[1] = { headers: { Authorization: `Bearer ${token}` } };
+      }
     }
   }
   return originalFetch(...args);
@@ -141,6 +152,14 @@ function App() {
       <Routes>
         <Route
           path="/"
+          element={
+            <MainLayout>
+              <HomePage />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/chats"
           element={
             <MainLayout>
               {/*Renderiza el chat guardado en el localStorage*/}

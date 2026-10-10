@@ -14,8 +14,10 @@ import {
   AudioLines,
   Menu,
   X,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { auth } from "../firebase";
 
 // Los chats tienen id y titulo
 interface Chat {
@@ -32,7 +34,8 @@ interface SidebarProps {
 }
 
 export const sections = [
-  { href: "/", label: "Chats", icon: MessageSquare },
+  { href: "/", label: "Inicio", icon: House },
+  { href: "/chats", label: "Chats", icon: MessageSquare },
   { href: "/historias", label: "Historias", icon: BookOpen },
   { href: "/cloze", label: "Cloze", icon: TextCursorInput },
   { href: "/fonetica", label: "Fonética", icon: AudioLines },
@@ -55,7 +58,7 @@ export default function Sidebar({
 
   // Saber si estamos en la página de chats para alternar el botón principal
   const location = useLocation();
-  const isChatPage = location.pathname === "/";
+  const isChatPage = location.pathname.startsWith("/chat");
 
   /*2. Estados (Variables que, al cambiar, redibujan la pantalla)
   Cada vez que un estado cambia, React vuelve a dibujar el componente (Sidebar en este caso).
@@ -264,7 +267,7 @@ export default function Sidebar({
                     onClick={() => {
                       onSelectChat(chat.id);
                       setIsMobileOpen(false);
-                      navigate("/");
+                      navigate("/chats");
                     }}
                   >
                     {editandoId === chat.id ? (
@@ -316,8 +319,16 @@ export default function Sidebar({
           <div className="flex items-center justify-between rounded-md px-2 py-2 text-sm text-muted-foreground">
             <div className="flex items-center gap-3">
               <Languages className="size-4" aria-hidden="true" />
-              <span>TutorIA v2</span>
+              <span>TutorIA</span>
             </div>
+
+            <button
+              onClick={() => auth.signOut()}
+              className="flex items-center gap-2 hover:text-foreground transition-colors p-1"
+              title="Cerrar sesión"
+            >
+              <LogOut className="size-4" />
+            </button>
           </div>
         </div>
       </aside>

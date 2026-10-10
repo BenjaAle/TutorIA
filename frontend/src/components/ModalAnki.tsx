@@ -35,7 +35,7 @@ interface ModalAnkiProps {
   cartasIniciales: CartaAnki[]; // Las cartas que propuso Gemini
   chatId: number; // El ID del chat o historia (0 si es de selección libre)
   onSuccess?: (cartasInyectadas: CartaAnki[]) => void; // Acción opcional al terminar con éxito
-  origen?: "chat" | "historia"; // Opcional, para saber si viene de chat o historia
+  origen?: "chat" | "historia" | "cloze"; // Opcional, para saber si viene de chat o historia
 }
 
 const CATEGORIAS_VALIDAS = [
