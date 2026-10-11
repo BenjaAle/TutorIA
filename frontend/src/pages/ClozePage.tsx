@@ -212,7 +212,7 @@ function ClozeItemComponent({
       className={cn(
         "rounded-xl border bg-card p-4 transition-colors md:p-6 shadow-sm relative group",
         status === "correct"
-          ? "border-success/50 bg-success/5"
+          ? "border-emerald-500/40 bg-emerald-500/10 dark:bg-emerald-500/15"
           : status === "wrong"
             ? "border-destructive/40"
             : "border-border",
@@ -244,7 +244,9 @@ function ClozeItemComponent({
                   <span
                     key={i}
                     className={
-                      status === "correct" ? "text-success" : "text-foreground"
+                      status === "correct"
+                        ? "text-emerald-600 dark:text-emerald-400 font-medium"
+                        : "text-foreground"
                     }
                   >
                     {tok.val}
@@ -262,13 +264,6 @@ function ClozeItemComponent({
                       setUserInputs({ ...userInputs, [id]: e.target.value });
                       if (status !== "idle") setStatus("idle");
                     }}
-                    onBlur={() => {
-                      // Solo validar si todos los espacios vacios fueron llenados.
-                      const allFilled = Object.keys(answerMap).every(
-                        (key) => (userInputs[Number(key)] || "").trim() !== "",
-                      );
-                      if (allFilled) check();
-                    }}
                     readOnly={status === "correct"}
                     autoComplete="off"
                     autoCapitalize="off"
@@ -278,7 +273,8 @@ function ClozeItemComponent({
                     }}
                     className={cn(
                       "border-b-2 bg-transparent px-1 mx-1 text-center font-sans font-medium outline-none transition-colors inline-block text-[0.9em]",
-                      status === "correct" && "border-success text-success",
+                      status === "correct" &&
+                        "border-emerald-500 text-emerald-600 dark:text-emerald-400",
                       isWrong && "border-destructive text-destructive",
                       status === "idle" &&
                         !isWrong &&
@@ -324,7 +320,7 @@ function ClozeItemComponent({
             <div className="flex items-center gap-3 border-l border-border pl-4">
               {status === "correct" && (
                 <>
-                  <span className="text-success font-medium flex items-center gap-1">
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
                     <PartyPopper className="size-3.5" /> ¡Correcto!
                   </span>
                   <button
@@ -510,11 +506,10 @@ export default function ClozePage() {
             <div className="mt-6 flex flex-col gap-3 rounded-xl border border-border bg-card p-5 sm:flex-row sm:items-center shadow-sm">
               <div className="flex-1">
                 <h3 className="font-medium text-foreground">
-                  Creación automática con IA
+                  Crear ejercicios con IA
                 </h3>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  La IA escaneará tu base de datos generando espacios vacios
-                  para completarlos.
+                  La IA creará ejercicios basados en tu estudio.
                 </p>
               </div>
               <button
@@ -527,7 +522,7 @@ export default function ClozePage() {
                 ) : (
                   <Sparkles className="size-4" />
                 )}
-                {generando ? "Analizando chats..." : "Generar más con IA"}
+                {generando ? "Analizando chats..." : "Generar ejercicios"}
               </button>
             </div>
           )}
