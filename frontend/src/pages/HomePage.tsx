@@ -8,7 +8,7 @@ export default function HomePage() {
         <section>
           <p className="font-serif text-lg italic text-primary"></p>
           <h1 className="mt-6 font-serif text-4xl font-semibold leading-[1.1] tracking-tight text-balance md:text-5xl text-foreground">
-            Distintos modos en un solo lugar
+            Distintas modalidades de estudio
           </h1>
           <p className="mt-5 max-w-md leading-relaxed text-muted-foreground text-pretty">
             Conversa, escucha historias, entrena con ejercicios y practica tu
@@ -45,7 +45,7 @@ export default function HomePage() {
                 className="group flex flex-col gap-2 rounded-xl border border-border p-4 transition-colors hover:border-primary/50 hover:bg-primary/5"
               >
                 <MessageSquare className="size-6 text-primary group-hover:scale-110 transition-transform" />
-                <span className="font-medium">Ir a los Chats</span>
+                <span className="font-medium">Ir a Chats</span>
                 <span className="text-xs text-muted-foreground">
                   Conversaciones guiadas por IA para extraer vocabulario.
                 </span>
@@ -55,7 +55,7 @@ export default function HomePage() {
                 className="group flex flex-col gap-2 rounded-xl border border-border p-4 transition-colors hover:border-primary/50 hover:bg-primary/5"
               >
                 <BookOpen className="size-6 text-blue-500 group-hover:scale-110 transition-transform" />
-                <span className="font-medium">Ir a Lectura</span>
+                <span className="font-medium">Ir a Historias</span>
                 <span className="text-xs text-muted-foreground">
                   Lee cuentos personalizados e incorpora palabras a tu mazo.
                 </span>

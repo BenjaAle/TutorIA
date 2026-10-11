@@ -342,6 +342,28 @@ export default function HistoriasPage() {
         }
       }
 
+      // Atajo tecla C: Volver a reproducir la frase actual
+      if (e.code === "KeyC" || e.key.toLowerCase() === "c") {
+        e.preventDefault();
+        if (indiceAudio >= 0 && audioPlayerRef.current?.src) {
+          audioPlayerRef.current.currentTime = 0;
+          audioPlayerRef.current.play();
+          setIsPlaying(true);
+        } else if (lineas.length > 0) {
+          reproducirDesde(Math.max(0, indiceAudio));
+        }
+      }
+
+      // Navegación con flechas izquierda / derecha
+      if (e.code === "ArrowLeft") {
+        e.preventDefault();
+        if (indiceAudio > 0) reproducirDesde(indiceAudio - 1);
+      }
+      if (e.code === "ArrowRight") {
+        e.preventDefault();
+        if (indiceAudio < lineas.length - 1) reproducirDesde(indiceAudio + 1);
+      }
+
       if (e.code === "Digit1" || e.code === "Numpad1") setModo("completo");
       if (e.code === "Digit2" || e.code === "Numpad2") setModo("lectura");
       if (e.code === "Digit3" || e.code === "Numpad3") setModo("escucha");
@@ -615,7 +637,7 @@ export default function HistoriasPage() {
                             onMouseDown={handleMouseDown}
                             onMouseUp={(e) => handleMouseUpPlay(i, e)}
                             className={cn(
-                              "grid w-full cursor-text grid-cols-[1.75rem_1fr] md:grid-cols-[2.5rem_1fr] gap-x-2 rounded-xl px-2 py-3 md:px-4 text-left transition-all",
+                              "grid w-full cursor-pointer grid-cols-[1.75rem_1fr] md:grid-cols-[2.5rem_1fr] gap-x-2 rounded-xl px-2 py-3 md:px-4 text-left transition-all",
                               current
                                 ? "bg-secondary/60 shadow-sm border border-border/50 scale-[1.01]"
                                 : "hover:bg-muted/40 border border-transparent",
