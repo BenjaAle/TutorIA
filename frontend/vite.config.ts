@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(__dirname, "./src"), //@ envia directo a src (en navegador)
     },
   },
   // Añadí server para poder hacer proxy al backend y evitar problemas de CORS

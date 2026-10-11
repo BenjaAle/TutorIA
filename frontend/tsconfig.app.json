@@ -9,7 +9,7 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"]   /*@ manda directo a src (en vscode)*/
     },
 
     /* Bundler mode */

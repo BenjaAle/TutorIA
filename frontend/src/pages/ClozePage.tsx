@@ -10,6 +10,7 @@ import {
   Volume2,
   Brain,
   Languages,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ModalAnki, { type CartaAnki } from "../components/ModalAnki";
@@ -209,11 +210,11 @@ function ClozeItemComponent({
 
   return (
     <li
-      className={cn(
+      className={cn( // Reglas base
         "rounded-xl border bg-card p-4 transition-colors md:p-6 shadow-sm relative group",
-        status === "correct"
+        status === "correct" // inyecta solo si acertó (si hay coincidencia con base, prioriza este)
           ? "border-emerald-500/40 bg-emerald-500/10 dark:bg-emerald-500/15"
-          : status === "wrong"
+          : status === "wrong" // inyecta solo si se equivocó
             ? "border-destructive/40"
             : "border-border",
       )}
@@ -284,6 +285,15 @@ function ClozeItemComponent({
                 );
               }
             })}
+            {status === "idle" && (
+              <button
+                type="submit"
+                className="ml-2 inline-flex translate-y-[-2px] items-center justify-center rounded-md p-1.5 text-muted-foreground hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10 transition-colors"
+                title="Comprobar respuesta (Enter)"
+              >
+                <Check className="size-5" />
+              </button>
+            )}
             <button type="submit" className="hidden" aria-hidden="true" />
           </form>
 
@@ -346,7 +356,7 @@ function ClozeItemComponent({
                 </>
               )}
               {status === "wrong" && (
-                <span className="text-destructive font-medium">
+                <span className="text-destructive font-medium"> {/*Aplicacion de text-destructive que es ROJO*/}
                   Vuelve a intentarlo
                 </span>
               )}

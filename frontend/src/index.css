@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -17,11 +18,11 @@
     --primary: 222.2 47.4% 11.2%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary-foreground: 222.2 47.4% 11.2%; /*0 al 360 , saturacion, luminosidad*/
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 100% 50%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 100% 50%;  /*Tono ROJO*/
+    --destructive-foreground: 210 40% 98%; /*Tono para escribir sobre ROJO (blanco)*/
     --ring: 215 20.2% 65.1%;
     --radius: 0.5rem;
   }

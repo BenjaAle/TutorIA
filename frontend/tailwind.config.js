@@ -25,9 +25,9 @@ export default {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
         },
-        destructive: {
+        destructive: {  /*Definicion global de ROJO*/
           DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
+          foreground: "hsl(var(--destructive-foreground))", /*Si uso text-destructive-foreground escribira blanco sobre un fondo rojo*/
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",
