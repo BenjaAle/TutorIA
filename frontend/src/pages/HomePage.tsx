@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { MessageSquare, BookOpen, Puzzle, Speech } from "lucide-react";
+import { MessageSquare, BookOpen, Speech, TextCursorInput } from "lucide-react";
 
 export default function HomePage() {
   return (
@@ -64,7 +64,7 @@ export default function HomePage() {
                 to="/cloze"
                 className="group flex flex-col gap-2 rounded-xl border border-border p-4 transition-colors hover:border-primary/50 hover:bg-primary/5"
               >
-                <Puzzle className="size-6 text-purple-500 group-hover:scale-110 transition-transform" />
+                <TextCursorInput className="size-6 text-purple-500 group-hover:scale-110 transition-transform" />
                 <span className="font-medium">Ir a Cloze</span>
                 <span className="text-xs text-muted-foreground">
                   Entrena tu memoria a largo plazo completando ejercicios.

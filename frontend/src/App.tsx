@@ -15,8 +15,6 @@ import FoneticaPage from "./pages/FoneticaPage.tsx";
 import ClozePage from "./pages/ClozePage.tsx";
 import HomePage from "./pages/HomePage.tsx";
 import { Loader2 } from "lucide-react";
-import "./styles/style.css";
-import "./styles/chats.css";
 
 // Variable que pasa al navegador y guarda el id del ultimo chat seleccionado
 const CHAT_STORAGE_KEY = "selectedChatId";

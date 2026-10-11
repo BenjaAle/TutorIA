@@ -9,7 +9,7 @@ import {
   House,
   Languages,
   TextCursorInput,
-  AudioLines,
+  Speech,
   Menu,
   X,
   LogOut,
@@ -36,7 +36,7 @@ export const sections = [
   { href: "/chats", label: "Chats", icon: MessageSquare },
   { href: "/historias", label: "Historias", icon: BookOpen },
   { href: "/cloze", label: "Cloze", icon: TextCursorInput },
-  { href: "/fonetica", label: "Fonética", icon: AudioLines },
+  { href: "/fonetica", label: "Fonética", icon: Speech },
 ];
 
 export default function Sidebar({

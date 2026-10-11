@@ -288,6 +288,7 @@ function ClozeItemComponent({
                 );
               }
             })}
+            <button type="submit" className="hidden" aria-hidden="true" />
           </form>
 
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
@@ -471,7 +472,7 @@ export default function ClozePage() {
         <header className="flex items-center gap-3 border-b border-border pl-16 pr-4 py-3 md:px-8 md:py-4 bg-background z-10 sticky top-0">
           <div className="min-w-0 flex-1 flex flex-col">
             <h2 className="truncate font-serif text-2xl font-bold md:text-3xl flex items-center gap-2">
-              <Puzzle className="size-6 text-foreground" /> Práctica de Cloze
+              Ejercicios Cloze
             </h2>
             <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
               Completa la palabra faltante según el contexto de la traducción en
