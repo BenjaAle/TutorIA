@@ -1,5 +1,4 @@
-import { useState, useEffect} from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
 import {
   Loader2,
   Sparkles,
@@ -10,7 +9,7 @@ import {
   PartyPopper,
   Volume2,
   Brain,
-  ArrowLeft,
+  Languages,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ModalAnki, { type CartaAnki } from "../components/ModalAnki";
@@ -161,10 +160,12 @@ function ClozeItemComponent({
     });
 
     if (allCorrect) {
-      setStatus("correct");
-      setWrongTokens([]);
-      onResult(exercise.id, true);
-      playAudio(exercise.ingles);
+      if (status !== "correct") {
+        setStatus("correct");
+        setWrongTokens([]);
+        onResult(exercise.id, true);
+        playAudio(exercise.ingles);
+      }
     } else {
       setStatus("wrong");
       setWrongTokens(errors);
@@ -262,7 +263,11 @@ function ClozeItemComponent({
                       if (status !== "idle") setStatus("idle");
                     }}
                     onBlur={() => {
-                      if (userInputs[id]) check();
+                      // Solo validar si todos los espacios vacios fueron llenados.
+                      const allFilled = Object.keys(answerMap).every(
+                        (key) => (userInputs[Number(key)] || "").trim() !== "",
+                      );
+                      if (allFilled) check();
                     }}
                     readOnly={status === "correct"}
                     autoComplete="off"
@@ -301,7 +306,7 @@ function ClozeItemComponent({
               onClick={() => setShowHint((s) => !s)}
               className="flex items-center gap-1 hover:text-foreground transition-colors font-medium"
             >
-              <Lightbulb className="size-3.5" />
+              <Languages className="size-3.5" />
               {showHint ? "Ocultar traducción" : "Ver traducción"}
             </button>
 
@@ -311,7 +316,7 @@ function ClozeItemComponent({
                 onClick={handleHint}
                 className="flex items-center gap-1 hover:text-foreground transition-colors font-medium border-l border-border pl-4"
               >
-                Dar una pista
+                <Lightbulb className="size-3.5" /> Dar una pista
               </button>
             )}
 
@@ -463,18 +468,14 @@ export default function ClozePage() {
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-background font-sans">
       <main className="flex-1 overflow-y-auto relative flex flex-col bg-background">
-        <header className="flex items-center gap-3 border-b border-border px-4 py-3 md:px-8 md:py-4 bg-background z-10 sticky top-0">
-          <Link to="/" className="md:hidden">
-            <ArrowLeft className="size-5 text-muted-foreground mr-2" />
-          </Link>
+        <header className="flex items-center gap-3 border-b border-border pl-16 pr-4 py-3 md:px-8 md:py-4 bg-background z-10 sticky top-0">
           <div className="min-w-0 flex-1 flex flex-col">
             <h2 className="truncate font-serif text-2xl font-bold md:text-3xl flex items-center gap-2">
               <Puzzle className="size-6 text-foreground" /> Práctica de Cloze
             </h2>
             <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
               Completa la palabra faltante según el contexto de la traducción en
-              español. Entrena el músculo de recordar vocabulario a velocidad de
-              conversación.
+              español.
             </p>
           </div>
         </header>
@@ -508,11 +509,11 @@ export default function ClozePage() {
             <div className="mt-6 flex flex-col gap-3 rounded-xl border border-border bg-card p-5 sm:flex-row sm:items-center shadow-sm">
               <div className="flex-1">
                 <h3 className="font-medium text-foreground">
-                  Creación automática AI
+                  Creación automática con IA
                 </h3>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  La IA escaneará tu base de datos generando huecos (clozes)
-                  adaptativos para reforzar el vocabulario donde más fallas.
+                  La IA escaneará tu base de datos generando espacios vacios
+                  para completarlos.
                 </p>
               </div>
               <button

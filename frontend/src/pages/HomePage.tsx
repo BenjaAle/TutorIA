@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { MessageSquare, BookOpen } from "lucide-react";
+import { MessageSquare, BookOpen, Puzzle, Speech } from "lucide-react";
 
 export default function HomePage() {
   return (
@@ -8,7 +8,7 @@ export default function HomePage() {
         <section>
           <p className="font-serif text-lg italic text-primary"></p>
           <h1 className="mt-6 font-serif text-4xl font-semibold leading-[1.1] tracking-tight text-balance md:text-5xl text-foreground">
-            Tu inglés, en un solo cuaderno.
+            Distintos modos en un solo lugar
           </h1>
           <p className="mt-5 max-w-md leading-relaxed text-muted-foreground text-pretty">
             Conversa, escucha historias, entrena con ejercicios y practica tu
@@ -37,7 +37,7 @@ export default function HomePage() {
         <div className="flex flex-col gap-6">
           <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
             <h3 className="font-serif text-xl font-medium mb-4">
-              ¿Qué quieres aprender hoy?
+              ¿Con qué quieres aprender hoy?
             </h3>
             <div className="grid gap-4 sm:grid-cols-2">
               <Link
@@ -58,6 +58,26 @@ export default function HomePage() {
                 <span className="font-medium">Ir a Lectura</span>
                 <span className="text-xs text-muted-foreground">
                   Lee cuentos personalizados e incorpora palabras a tu mazo.
+                </span>
+              </Link>
+              <Link
+                to="/cloze"
+                className="group flex flex-col gap-2 rounded-xl border border-border p-4 transition-colors hover:border-primary/50 hover:bg-primary/5"
+              >
+                <Puzzle className="size-6 text-purple-500 group-hover:scale-110 transition-transform" />
+                <span className="font-medium">Ir a Cloze</span>
+                <span className="text-xs text-muted-foreground">
+                  Entrena tu memoria a largo plazo completando ejercicios.
+                </span>
+              </Link>
+              <Link
+                to="/fonetica"
+                className="group flex flex-col gap-2 rounded-xl border border-border p-4 transition-colors hover:border-primary/50 hover:bg-primary/5"
+              >
+                <Speech className="size-6 text-emerald-500 group-hover:scale-110 transition-transform" />
+                <span className="font-medium">Ir a Fonética</span>
+                <span className="text-xs text-muted-foreground">
+                  Mejora tu pronunciación de los 44 fonemas.
                 </span>
               </Link>
             </div>

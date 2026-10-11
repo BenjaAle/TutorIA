@@ -114,8 +114,7 @@ export default function ChatPage({ selectedChatId }: ChatPageProps) {
           setMensajes([
             {
               rol: "bot",
-              texto:
-                "¡Hello! Soy tu tutor de inglés. ¿De qué hablaremos hoy?",
+              texto: "¡Hello! Soy tu tutor de inglés. ¿De qué hablaremos hoy?",
             },
           ]);
         } else {
@@ -247,13 +246,13 @@ export default function ChatPage({ selectedChatId }: ChatPageProps) {
 
   return (
     <section className="flex flex-col min-w-0 flex-1 h-full max-h-screen bg-background md:rounded-l-3xl shadow-sm border md:border-l-border lg:overflow-hidden relative">
-      <header className="flex items-center gap-3 border-b border-border px-4 py-3 md:px-8 md:py-4 bg-background z-10 w-full shrink-0 md:rounded-tl-3xl">
+      <header className="flex items-center gap-3 border-b border-border pl-16 pr-4 py-3 md:px-8 md:py-4 bg-background z-10 w-full shrink-0 md:rounded-tl-3xl">
         <div className="min-w-0 flex-1">
           <h2 className="truncate font-serif text-lg font-semibold md:text-xl">
             Tutor IA
           </h2>
           <p className="text-xs text-muted-foreground">
-            Conversación Libre con Gemini · {mensajes.length} mensajes
+            Conversación con IA · {mensajes.length} mensajes
           </p>
         </div>
         <Button

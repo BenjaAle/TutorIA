@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { Speech, Volume2, ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Speech, Volume2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Fonema {
@@ -113,10 +112,7 @@ export default function FoneticaPage() {
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-background font-sans">
       <main className="flex-1 overflow-y-auto relative flex flex-col bg-background">
-        <header className="flex items-center gap-3 border-b border-border px-4 py-3 md:px-8 md:py-4 bg-background z-10 sticky top-0">
-          <Link to="/" className="md:hidden">
-            <ArrowLeft className="size-5 text-muted-foreground mr-2" />
-          </Link>
+        <header className="flex items-center gap-3 border-b border-border pl-16 pr-4 py-3 md:px-8 md:py-4 bg-background z-10 sticky top-0">
           <div className="min-w-0 flex-1 flex flex-col">
             <h2 className="truncate font-serif text-2xl font-bold md:text-3xl">
               Fonética
@@ -129,7 +125,7 @@ export default function FoneticaPage() {
 
         <div className="px-4 py-8 md:px-8 max-w-7xl mx-auto w-full">
           {/* Seccion FONEMAS */}
-          <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
+          <div className="flex flex-col-reverse gap-8 lg:grid lg:grid-cols-[1fr_20rem]">
             <div className="space-y-10">
               {FONEMA_GROUPS.map((group) => {
                 const items = fonemas.filter((p) => p.grupo === group);
@@ -145,7 +141,7 @@ export default function FoneticaPage() {
                         {items.length}
                       </span>
                     </h2>
-                    <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6">
+                    <ul className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-5 xl:grid-cols-6">
                       {items.map((p) => {
                         const active = activeFonema?.id === p.id;
                         return (
@@ -155,18 +151,18 @@ export default function FoneticaPage() {
                               onClick={() => handleClickFonema(p)}
                               aria-pressed={active}
                               className={cn(
-                                "flex aspect-[4/3] w-full flex-col items-center justify-center gap-1 rounded-lg border transition-all duration-200",
+                                "flex py-3 md:py-0 md:aspect-[4/3] w-full flex-col items-center justify-center gap-0.5 md:gap-1 rounded-lg border transition-all duration-200",
                                 active
                                   ? "border-foreground bg-foreground text-background shadow-md scale-[1.02]"
                                   : "border-border bg-card hover:border-foreground/30 hover:bg-muted/30 hover:scale-[1.02] active:scale-[0.98]",
                               )}
                             >
-                              <span className="font-ipa text-3xl font-medium tracking-wider">
+                              <span className="font-ipa text-2xl md:text-3xl font-medium tracking-wider">
                                 {p.simbolo}
                               </span>
                               <span
                                 className={cn(
-                                  "text-xs mt-1 transition-colors",
+                                  "text-[10px] md:text-xs mt-0.5 md:mt-1 transition-colors",
                                   active
                                     ? "text-background/80 font-medium"
                                     : "text-muted-foreground",
@@ -186,17 +182,17 @@ export default function FoneticaPage() {
 
             {/* Asignacion dinamica de Fonema Seleccionado */}
             <div>
-              <aside className="sticky top-[100px] h-fit rounded-xl border border-border bg-card p-6 shadow-sm">
+              <aside className="sticky top-[80px] md:top-[100px] h-fit rounded-xl border border-border bg-card p-4 md:p-6 shadow-sm">
                 {activeFonema ? (
                   <>
-                    <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
+                    <p className="text-[10px] md:text-xs uppercase tracking-wider font-semibold text-muted-foreground">
                       {activeFonema.grupo}
                     </p>
-                    <p className="mt-4 font-ipa text-[5.5rem] leading-[1] text-foreground font-light">
+                    <p className="mt-2 md:mt-4 font-ipa text-6xl md:text-[5.5rem] leading-[1] text-foreground font-light">
                       {activeFonema.simbolo}
                     </p>
-                    <div className="mt-4 border-b border-border/50 pb-5">
-                      <p className="font-serif text-3xl font-medium text-destructive">
+                    <div className="mt-3 md:mt-4 border-b border-border/50 pb-3 md:pb-5">
+                      <p className="font-serif text-2xl md:text-3xl font-medium text-destructive">
                         {activeFonema.palabra}
                       </p>
                       <p className="text-sm font-ipa text-muted-foreground mt-1">
@@ -204,16 +200,16 @@ export default function FoneticaPage() {
                       </p>
                     </div>
 
-                    <h3 className="mt-5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <h3 className="mt-4 md:mt-5 text-[10px] md:text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       Cómo se pronuncia
                     </h3>
-                    <p className="mt-2 text-[15px] leading-relaxed text-foreground/90 font-medium">
+                    <p className="mt-1 md:mt-2 text-sm md:text-[15px] leading-relaxed text-foreground/90 font-medium">
                       {activeFonema.desc}
                     </p>
                     <button
                       type="button"
                       onClick={reproducirFonemaActivo}
-                      className="mt-8 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-input bg-background text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground shadow-sm active:scale-95"
+                      className="mt-5 md:mt-8 inline-flex h-10 md:h-11 w-full items-center justify-center gap-2 rounded-md border border-input bg-background text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground shadow-sm active:scale-95"
                     >
                       <Volume2 className="size-4" />
                       Escuchar &ldquo;{activeFonema.palabra}&rdquo;

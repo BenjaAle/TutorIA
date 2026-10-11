@@ -161,8 +161,8 @@ export default function Sidebar({
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 h-dvh w-72 flex-col border-r border-sidebar-border bg-background px-4 py-6 transition-transform duration-300 md:sticky md:top-0 md:translate-x-0 hidden md:flex shrink-0 shadow-lg md:shadow-none overflow-y-auto scrollbar-hide",
-          isMobileOpen ? "translate-x-0 flex w-72" : "-translate-x-full",
+          "fixed inset-y-0 left-0 z-50 h-dvh w-72 flex-col border-r border-sidebar-border bg-background px-4 py-6 transition-transform duration-300 md:sticky md:top-0 md:translate-x-0 flex shrink-0 shadow-lg md:shadow-none overflow-y-auto scrollbar-hide",
+          isMobileOpen ? "translate-x-0 w-72" : "-translate-x-full",
         )}
       >
         <div className="flex items-center justify-between mb-8">
