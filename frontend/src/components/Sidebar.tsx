@@ -13,9 +13,12 @@ import {
   Menu,
   X,
   LogOut,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { auth } from "../firebase";
+import { useTheme } from "../hooks/useTheme";
 
 // Los chats tienen id y titulo
 interface Chat {
@@ -43,6 +46,7 @@ export default function Sidebar({
   selectedChatId,
   onSelectChat,
 }: SidebarProps) {
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   // Mobile toggle state
   const [isMobileOpen, setIsMobileOpenState] = useState(
@@ -323,13 +327,31 @@ export default function Sidebar({
               <span>TutorIA</span>
             </div>
 
-            <button
-              onClick={() => auth.signOut()}
-              className="flex items-center gap-2 hover:text-foreground transition-colors p-1"
-              title="Cerrar sesión"
-            >
-              <LogOut className="size-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={toggleTheme}
+                className="flex items-center justify-center hover:text-foreground transition-colors p-1.5 rounded-md hover:bg-muted"
+                title={
+                  theme === "dark"
+                    ? "Cambiar a modo claro"
+                    : "Cambiar a modo oscuro"
+                }
+              >
+                {theme === "dark" ? (
+                  <Sun className="size-4 text-amber-400" />
+                ) : (
+                  <Moon className="size-4" />
+                )}
+              </button>
+
+              <button
+                onClick={() => auth.signOut()}
+                className="flex items-center justify-center hover:text-foreground transition-colors p-1.5 rounded-md hover:bg-muted"
+                title="Cerrar sesión"
+              >
+                <LogOut className="size-4" />
+              </button>
+            </div>
           </div>
         </div>
       </aside>

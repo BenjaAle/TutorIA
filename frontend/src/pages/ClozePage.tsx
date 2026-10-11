@@ -29,7 +29,10 @@ interface Oracion {
 type Source = "anki" | "ia";
 type Status = "idle" | "correct" | "wrong";
 
-function getClozeDetails(frase: string, palabra_oculta?: string) {
+function getClozeDetails(
+  frase: string,
+  palabra_oculta?: string,
+): { tokens: Token[]; answerMap: Record<number, string> } {
   if (!frase) return { tokens: [], answerMap: {} };
 
   // 1. Array de palabras a ocultar
@@ -152,7 +155,7 @@ function ClozeItemComponent({
 
     Object.keys(answerMap).forEach((key) => {
       const id = Number(key);
-      const expected = answerMap[id].toLowerCase().trim();
+      const expected = (answerMap[id] || "").toLowerCase().trim();
       const actual = (userInputs[id] || "").toLowerCase().trim();
       if (actual !== expected) {
         allCorrect = false;
@@ -210,7 +213,8 @@ function ClozeItemComponent({
 
   return (
     <li
-      className={cn( // Reglas base
+      className={cn(
+        // Reglas base
         "rounded-xl border bg-card p-4 transition-colors md:p-6 shadow-sm relative group",
         status === "correct" // inyecta solo si acertó (si hay coincidencia con base, prioriza este)
           ? "border-emerald-500/40 bg-emerald-500/10 dark:bg-emerald-500/15"
@@ -270,7 +274,7 @@ function ClozeItemComponent({
                     autoCapitalize="off"
                     spellCheck={false}
                     style={{
-                      width: `${Math.max(answerMap[id].length, 4) + 1}ch`,
+                      width: `${Math.max((answerMap[id] || "").length, 4) + 1}ch`,
                     }}
                     className={cn(
                       "border-b-2 bg-transparent px-1 mx-1 text-center font-sans font-medium outline-none transition-colors inline-block text-[0.9em]",
@@ -356,7 +360,9 @@ function ClozeItemComponent({
                 </>
               )}
               {status === "wrong" && (
-                <span className="text-destructive font-medium"> {/*Aplicacion de text-destructive que es ROJO*/}
+                <span className="text-destructive font-medium">
+                  {" "}
+                  {/*Aplicacion de text-destructive que es ROJO*/}
                   Vuelve a intentarlo
                 </span>
               )}

@@ -7,9 +7,8 @@
     "types": ["vite/client"],
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]   /*@ manda directo a src (en vscode)*/
+      "@/*": ["./src/*"] /*@ manda directo a src (en vscode)*/
     },
 
     /* Bundler mode */
