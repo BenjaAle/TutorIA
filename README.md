@@ -22,7 +22,7 @@ Aplicación web impulsada por IA (Google Gemini) diseñada para el aprendizaje d
 - React 18 + TS
 - Vite
 - React Router DOM
-- Vanilla CSS
+- Tailwind CSS
 
 **Backend:**
 
