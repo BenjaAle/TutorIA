@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-// 🪄 Componente Aislado para manejar la selección sin re-renderizar HistoriasPage
+// Componente Aislado para manejar la selección sin re-renderizar HistoriasPage
 const KindleSelection = ({
   onRequestAnki,
 }: {
@@ -85,7 +85,7 @@ const KindleSelection = ({
 
   return (
     <div
-      className="floating-anki-btn"
+      className="fixed z-[1000] bg-[#27ae60] text-white px-3 py-1.5 rounded-md text-xs font-bold shadow-md transition-transform hover:scale-105 cursor-pointer"
       style={{
         top: isMobile
           ? `${seleccion.rect.bottom + 15}px`

@@ -1,9 +1,15 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import path from "path";
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"), //@ envia directo a src (en navegador)
+    },
+  },
   // Añadí server para poder hacer proxy al backend y evitar problemas de CORS
   // para no escribir la ruta completa en los fetch
   server: {

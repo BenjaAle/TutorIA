@@ -1,6 +1,22 @@
 import { useState, useEffect } from "react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Trash2,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input, Label, Select } from "@/components/field";
 
-// 1. Estructura de una Carta
 export interface CartaAnki {
   frente: string;
   reverso: string;
@@ -17,7 +33,7 @@ interface ModalAnkiProps {
   cartasIniciales: CartaAnki[]; // Las cartas que propuso Gemini
   chatId: number; // El ID del chat o historia (0 si es de selección libre)
   onSuccess?: (cartasInyectadas: CartaAnki[]) => void; // Acción opcional al terminar con éxito
-  origen?: "chat" | "historia"; // Opcional, para saber si viene de chat o historia
+  origen?: "chat" | "historia" | "cloze"; // Opcional, para saber si viene de chat o historia
 }
 
 const CATEGORIAS_VALIDAS = [
@@ -41,52 +57,75 @@ export default function ModalAnki({
 }: ModalAnkiProps) {
   // 3. Estado local para manejar las cartas mientras el usuario las edita o borra
   const [cartas, setCartas] = useState<CartaAnki[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [injectedLoading, setInjectedLoading] = useState(false);
+  const [sent, setSent] = useState(false);
 
   // Cuando se abre el modal o cambian las cartas iniciales, cargamos esas cartas al estado
   useEffect(() => {
     setCartas(cartasIniciales);
-  }, [cartasIniciales]);
+    setCurrentIndex(0);
+    setSent(false);
+  }, [cartasIniciales, isOpen]);
 
-  // Si no está abierto, no renderizamos nada
-  if (!isOpen) return null;
-
-  // 4. Función para actualizar un campo específico de una carta
-  const handleFieldChange = (
-    index: number, // pos. carta en la lista
-    campo: keyof CartaAnki, // campo: frente, reverso, ejemplo_ingles, etc.
-    valor: string, // valor: el nuevo valor del campo
-  ) => {
+  const handleFieldChange = (campo: keyof CartaAnki, valor: string) => {
     setCartas((prev) =>
-      prev.map((carta, i) => {
-        if (i === index) {
-          return { ...carta, [campo]: valor }; // retorno un nuevo objeto con el campo actualizado
-        }
-        return carta;
-      }),
+      prev.map((carta, i) =>
+        i === currentIndex ? { ...carta, [campo]: valor } : carta,
+      ),
     );
   };
 
-  // 5. Función para eliminar una carta individual de la lista
-  // filter pide value, index, pero me quedo solo con index
-  const handleEliminarCarta = (index: number) => {
-    setCartas((prev) => prev.filter((_, i) => i !== index));
+  const handleExampleChange = (
+    exampleIndex: number,
+    lang: "ejemplo_ingles" | "ejemplo_espanol",
+    value: string,
+  ) => {
+    const card = cartas[currentIndex];
+    if (!card) return;
+    const examples = (card[lang] || "").split("|").map((s) => s.trim());
+
+    while (examples.length <= exampleIndex) examples.push("");
+
+    const newExamplesArray = [...examples];
+    newExamplesArray[exampleIndex] = value;
+    handleFieldChange(lang, newExamplesArray.join(" | "));
   };
 
-  // 6. Cierre con confirmación de seguridad
-  const handleCerrar = () => {
-    if (injectedLoading) {
-      alert("Por favor espera a que termine la inyección.");
-      return; // para que no llegue al onClose()
-    }
+  const handleAddExample = () => {
+    const card = cartas[currentIndex];
+    if (!card) return;
+    const currentEn = card.ejemplo_ingles ? card.ejemplo_ingles.trim() : "";
+    const currentEs = card.ejemplo_espanol ? card.ejemplo_espanol.trim() : "";
 
-    if (cartas.length > 0) {
-      const confirmar = window.confirm(
-        "⚠️ ¿Estás seguro de cerrar? Se perderán las cartas no guardadas.",
-      );
-      if (!confirmar) return; // si no confirma, no cerrar
+    handleFieldChange("ejemplo_ingles", currentEn ? currentEn + " | " : "");
+    handleFieldChange("ejemplo_espanol", currentEs ? currentEs + " | " : "");
+  };
+
+  const handleEliminarCarta = () => {
+    setCartas((prev) => {
+      const newCartas = prev.filter((_, i) => i !== currentIndex);
+      if (currentIndex >= newCartas.length && currentIndex > 0) {
+        setCurrentIndex(newCartas.length - 1);
+      }
+      return newCartas;
+    });
+  };
+
+  const handleCerrar = (next: boolean) => {
+    if (next === false) {
+      if (injectedLoading) {
+        alert("Por favor espera a que termine la inyección.");
+        return;
+      }
+      if (cartas.length > 0 && !sent) {
+        const confirmar = window.confirm(
+          "⚠️ ¿Estás seguro de cerrar? Se perderán las cartas no guardadas.",
+        );
+        if (!confirmar) return;
+      }
+      onClose();
     }
-    onClose();
   };
 
   // 7. Enviar y procesar las cartas con el backend
@@ -95,9 +134,7 @@ export default function ModalAnki({
       alert("No hay cartas para enviar.");
       return;
     }
-
     setInjectedLoading(true);
-
     try {
       const res = await fetch("/inyectar_cartas", {
         method: "POST",
@@ -108,26 +145,17 @@ export default function ModalAnki({
       // En caso de error, lo capturo con catch y retorno un objeto vacío
       const data = await res.json().catch(() => ({}));
 
-      if (!res.ok) {
-        alert(
-          `Error de red: ${data.detail || data.mensaje || "Fallo de conexión"}`,
-        );
-        return; // Importantísimo: Cortar la ejecución para no destruir las cartas editadas!
-      }
-
       if (
+        !res.ok ||
         data.error ||
-        (data.mensaje &&
-          typeof data.mensaje === "string" &&
+        (typeof data.mensaje === "string" &&
           data.mensaje.toLowerCase().includes("error"))
       ) {
-        alert(data.error || data.mensaje);
+        alert(data.error || data.mensaje || "Error de conexión");
         return;
       }
 
-      alert(data.mensaje || "Cartas procesadas.");
-
-      // Guardar el vocabulario nuevo en la base de datos local para activar el subrayado permanente
+      // Guardar vocabulario al local DB si es historia (Lógica antigua mantenida)
       if (origen === "historia") {
         try {
           const palabrasNuevas = cartas.map((c) =>
@@ -139,247 +167,264 @@ export default function ModalAnki({
             body: JSON.stringify({ palabras: palabrasNuevas }),
           });
         } catch (e) {
-          console.error("Error guardando vocabulario en BD local", e);
+          console.error("Error BD local", e);
         }
       }
 
-      // Si nos pasaron una función para actualizar el vocabulario en pantalla, la ejecutamos
-      if (onSuccess) {
-        onSuccess(cartas);
-      }
-
-      onClose(); // Cerramos el modal tras inyectar todo
+      setSent(true);
+      if (onSuccess) onSuccess(cartas);
+      setTimeout(() => onClose(), 2000); // Cerramos tras un breve exito
     } catch (err) {
-      alert("Error al conectar o inyectar las cartas.");
-      console.error(err);
+      alert("Error al conectar.");
     } finally {
       setInjectedLoading(false);
     }
   };
 
-  const handleExportarAPKG = async () => {
-    if (cartas.length === 0) {
-      alert("No hay cartas para enviar.");
-      return;
-    }
+  if (!isOpen) return null;
 
-    setInjectedLoading(true);
-
-    try {
-      const res = await fetch("/exportar_apkg", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: chatId, cartas: cartas }),
-      });
-
-      if (!res.ok) {
-        alert("Fallo de conexión al exportar.");
-        return;
-      }
-
-      const contentType = res.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        const data = await res.json();
-        alert(data.error || data.mensaje || "Error al exportar");
-        return;
-      }
-
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `TutorIA_Mazo.apkg`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-
-      alert("¡Descargado exitosamente! Toca el archivo para importarlo.");
-
-      if (origen === "historia") {
-        try {
-          const palabrasNuevas = cartas.map((c) =>
-            c.frente.replace(/\(.*\)/g, "").trim(),
-          );
-          await fetch("/api/vocabulario", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ palabras: palabrasNuevas }),
-          });
-        } catch (e) {
-          console.error("Error BD", e);
-        }
-      }
-
-      if (onSuccess) {
-        onSuccess(cartas);
-      }
-      onClose();
-    } catch (err) {
-      alert("Error al conectar o descargar el archivo apk.");
-      console.error(err);
-    } finally {
-      setInjectedLoading(false);
-    }
-  };
+  const card = cartas[currentIndex];
+  if (!card && cartas.length === 0) {
+    return (
+      <Dialog open={isOpen} onOpenChange={handleCerrar}>
+        <DialogContent className="p-6">
+          <p className="text-center text-muted-foreground">No quedan cartas.</p>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
-    <div className="modal">
-      <div className="modal-content">
-        <div className="modal-header">
-          <h3>🔍 Revisa tu(s) nueva(s) carta(s)</h3>
-          <span className="close-modal" onClick={handleCerrar}>
-            &times;
-          </span>
-        </div>
+    <Dialog open={isOpen} onOpenChange={handleCerrar}>
+      <DialogContent className="max-h-[92dvh] gap-0 overflow-y-auto p-0 sm:max-w-4xl bg-background rounded-lg border border-border shadow-lg">
+        <DialogHeader className="border-b border-border px-6 py-5">
+          <DialogTitle className="font-serif text-2xl font-semibold">
+            Revisa tus cartas para Anki
+          </DialogTitle>
+          <DialogDescription>
+            Revisa los campos antes de integrarlos al mazo.
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="lista-revision">
-          {cartas.length === 0 ? (
-            <p className="modal-empty-state">No quedan cartas por revisar.</p>
-          ) : (
-            cartas.map((carta, index) => (
-              <div key={index} className="card-revision">
-                <span
-                  className="delete-card"
-                  onClick={() => handleEliminarCarta(index)}
+        <div className="grid gap-0 md:grid-cols-[1.1fr_1fr]">
+          <div className="border-b border-border bg-muted/30 p-6 md:border-b-0 md:border-r relative flex flex-col">
+            <div className="mb-4 flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">
+                Vista previa ficticia
+              </span>
+            </div>
+
+            <div className="flex-1 flex aspect-[4/5] items-center justify-center rounded-md border border-dashed border-border bg-card p-6 text-center shadow-sm">
+              <p className="font-serif text-xl font-semibold text-muted-foreground">
+                (El frente y reverso irían aquí)
+              </p>
+            </div>
+
+            {/* Navigador de Cartas */}
+            {cartas.length > 1 && (
+              <div className="mt-6 flex items-center justify-between px-2">
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  disabled={currentIndex === 0}
+                  onClick={() => setCurrentIndex((c) => c - 1)}
                 >
-                  ✕ Eliminar
-                </span>
-
-                <div className="grid-edit">
-                  <div className="field-group">
-                    <label>Frente (Concepto)</label>
-                    <input
-                      type="text"
-                      className="edit-frente"
-                      value={carta.frente}
-                      onChange={(e) =>
-                        handleFieldChange(index, "frente", e.target.value)
-                      }
-                    />
-                  </div>
-
-                  <div className="field-group">
-                    <label>Categoría</label>
-                    <select
-                      className="edit-categoria"
-                      value={carta.categoria}
-                      onChange={(e) =>
-                        handleFieldChange(index, "categoria", e.target.value)
-                      }
-                    >
-                      {CATEGORIAS_VALIDAS.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="field-group full-width">
-                    <label>Reverso (Significado/Definición)</label>
-                    <textarea
-                      className="edit-reverso"
-                      rows={2}
-                      value={carta.reverso}
-                      onChange={(e) =>
-                        handleFieldChange(index, "reverso", e.target.value)
-                      }
-                    />
-                  </div>
-
-                  <div className="field-group">
-                    <label>Oración Ejemplo (Inglés)</label>
-                    <input
-                      type="text"
-                      className="edit-ejemplo"
-                      value={carta.ejemplo_ingles}
-                      onChange={(e) =>
-                        handleFieldChange(
-                          index,
-                          "ejemplo_ingles",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-
-                  <div className="field-group">
-                    <label>Oración Ejemplo (Español)</label>
-                    <input
-                      type="text"
-                      className="edit-traduccion"
-                      value={carta.ejemplo_espanol || ""}
-                      onChange={(e) =>
-                        handleFieldChange(
-                          index,
-                          "ejemplo_espanol",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-
-                  <div className="field-group">
-                    <label>Término para Imagen (Pexels)</label>
-                    <input
-                      type="text"
-                      className="edit-imagen"
-                      value={carta.termino_imagen}
-                      onChange={(e) =>
-                        handleFieldChange(
-                          index,
-                          "termino_imagen",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <div className="text-sm font-medium">
+                  Carta {currentIndex + 1} de {cartas.length}
                 </div>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  disabled={currentIndex === cartas.length - 1}
+                  onClick={() => setCurrentIndex((c) => c + 1)}
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
               </div>
-            ))
-          )}
+            )}
+          </div>
+
+          <div className="space-y-5 p-6">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-muted-foreground">
+                Campos de la carta actual
+              </span>
+              <Button
+                variant="ghost"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive px-2 h-7"
+                onClick={handleEliminarCarta}
+              >
+                <Trash2 className="size-4 mr-1" />
+                Descartar Carta
+              </Button>
+            </div>
+
+            <div>
+              <Label htmlFor="anki-front">Frente (Concepto)</Label>
+              <Input
+                id="anki-front"
+                value={card?.frente || ""}
+                onChange={(e) => handleFieldChange("frente", e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="anki-back">Reverso (Definición)</Label>
+              <Input
+                id="anki-back"
+                value={card?.reverso || ""}
+                onChange={(e) => handleFieldChange("reverso", e.target.value)}
+              />
+            </div>
+
+            <fieldset>
+              <legend className="mb-4 text-xs font-medium text-muted-foreground flex items-center justify-between w-full">
+                <span>
+                  Frases de ejemplo{" "}
+                  <span className="font-normal border rounded px-1 text-[10px] ml-1 bg-muted">
+                    reverso
+                  </span>
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="h-6 w-6 text-muted-foreground mr-1"
+                  onClick={handleAddExample}
+                  title="Añadir frase"
+                >
+                  +
+                </Button>
+              </legend>
+              <div className="space-y-4">
+                {(() => {
+                  const englishExamples = (card?.ejemplo_ingles || "")
+                    .split("|")
+                    .map((s) => s.trim());
+                  const spanishExamples = (card?.ejemplo_espanol || "")
+                    .split("|")
+                    .map((s) => s.trim());
+                  const count = Math.max(
+                    englishExamples.length,
+                    spanishExamples.length,
+                    1,
+                  );
+
+                  return Array.from({ length: count }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="grid grid-cols-[1.75rem_1fr] gap-x-2 gap-y-1.5 focus-within:ring-1 ring-border p-2 -mx-2 rounded-md transition-all"
+                    >
+                      <span
+                        className="pt-2 flex justify-center font-serif text-[11px] font-bold text-muted-foreground/50 border-r border-muted pr-1"
+                        title={`Ejemplo ${i + 1}`}
+                      >
+                        EN
+                      </span>
+                      <Input
+                        aria-label={`Ejemplo ${i + 1} en inglés`}
+                        value={englishExamples[i] || ""}
+                        placeholder="Ejemplo en inglés..."
+                        className="h-8 shadow-none"
+                        onChange={(e) =>
+                          handleExampleChange(
+                            i,
+                            "ejemplo_ingles",
+                            e.target.value,
+                          )
+                        }
+                      />
+                      <span className="pt-2 flex justify-center font-serif text-[11px] font-bold text-muted-foreground/50 border-r border-muted pr-1">
+                        ES
+                      </span>
+                      <Input
+                        aria-label={`Traducción ${i + 1} en español`}
+                        value={spanishExamples[i] || ""}
+                        placeholder="Traducción en español..."
+                        onChange={(e) =>
+                          handleExampleChange(
+                            i,
+                            "ejemplo_espanol",
+                            e.target.value,
+                          )
+                        }
+                        className="bg-muted/30 text-muted-foreground h-8 shadow-none border-dashed border-t-0 focus-visible:border-solid focus-visible:border-t"
+                      />
+                    </div>
+                  ));
+                })()}
+              </div>
+            </fieldset>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="anki-pexels">Imagen Pexels</Label>
+                <Input
+                  id="anki-pexels"
+                  value={card?.termino_imagen || ""}
+                  onChange={(e) =>
+                    handleFieldChange("termino_imagen", e.target.value)
+                  }
+                />
+              </div>
+              <div>
+                <Label htmlFor="anki-category">Categoría</Label>
+                <Select
+                  id="anki-category"
+                  value={card?.categoria || "Vocabulario"}
+                  onChange={(e) =>
+                    handleFieldChange("categoria", e.target.value as any)
+                  }
+                >
+                  {CATEGORIAS_VALIDAS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div
-          className="modal-footer"
-          style={{
-            display: "flex",
-            gap: "10px",
-            justifyContent: "space-between",
-          }}
-        >
-          {typeof window !== "undefined" && window.innerWidth > 768 && (
-            <button
-              className="confirm-btn"
+        <DialogFooter className="m-0 items-center rounded-none px-6 py-4 sm:justify-between border-t border-border bg-muted/10">
+          <p
+            className="text-xs text-muted-foreground hidden md:block"
+            aria-live="polite"
+          >
+            {sent ? (
+              <span className="flex items-center gap-1.5 text-success font-medium">
+                <Check className="size-3.5" aria-hidden="true" />
+                Añadidas al mazo del PC
+              </span>
+            ) : (
+              <>
+                Mazo destino: <span className="text-foreground">TutorIA</span>
+              </>
+            )}
+          </p>
+          <div className="flex gap-2 w-full md:w-auto">
+            <DialogClose
+              render={
+                <Button
+                  variant="outline"
+                  className="h-9 px-3 flex-1 md:flex-initial"
+                />
+              }
+            >
+              {sent ? "Cerrar" : "Cancelar"}
+            </DialogClose>
+            <Button
+              className="h-9 px-4 flex-1 md:flex-initial"
               onClick={handleConfirmarTodo}
-              disabled={injectedLoading || cartas.length === 0}
-              style={{ flex: 1, padding: "10px", minHeight: "50px" }}
+              disabled={sent || injectedLoading}
             >
-              {injectedLoading
-                ? "🚀 Inyectando..."
-                : "Inyectar al PC"}
-            </button>
-          )}
-
-          {typeof window !== "undefined" && window.innerWidth <= 768 && (
-            <button
-              className="confirm-btn"
-              onClick={handleExportarAPKG}
-              disabled={injectedLoading || cartas.length === 0}
-              style={{
-                flex: 1,
-                backgroundColor: "#28a745",
-                padding: "10px",
-                minHeight: "50px",
-              }}
-            >
-              {injectedLoading
-                ? "📦 Empacando..."
-                : "Descargar para Móvil (.apkg)"}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+              {injectedLoading ? "Enviando..." : "Enviar al PC (FastAPI)"}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -6,13 +6,13 @@ import {
   BookOpen,
   Trash2,
   Lightbulb,
-  Check,
   PartyPopper,
   Volume2,
   Brain,
-  ArrowRight,
+  Languages,
+  Check,
 } from "lucide-react";
-import "../styles/style.css";
+import { cn } from "@/lib/utils";
 import ModalAnki, { type CartaAnki } from "../components/ModalAnki";
 
 type Token =
@@ -26,196 +26,136 @@ interface Oracion {
   palabra_oculta?: string;
 }
 
-export default function ClozePage() {
-  const [oraciones, setOraciones] = useState<Oracion[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [userInputs, setUserInputs] = useState<Record<number, string>>({});
-  const [wrongIds, setWrongIds] = useState<number[]>([]);
-  const [showRespuesta, setShowRespuesta] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [generando, setGenerando] = useState(false);
-  const [origenSel, setOrigenSel] = useState<"anki" | "ia">("anki");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [cartasAExportar, setCartasAExportar] = useState<CartaAnki[]>([]);
+type Source = "anki" | "ia";
+type Status = "idle" | "correct" | "wrong";
 
-  // Variables derivadas
-  const currentOracion = oraciones[currentIndex];
+function getClozeDetails(
+  frase: string,
+  palabra_oculta?: string,
+): { tokens: Token[]; answerMap: Record<number, string> } {
+  if (!frase) return { tokens: [], answerMap: {} };
 
-  const getClozeDetails = (frase: string, palabra_oculta?: string) => {
-    if (!frase) return { tokens: [], answerMap: {} };
+  // 1. Array de palabras a ocultar
+  let wordsToHide: string[] = [];
+  if (palabra_oculta) {
+    wordsToHide = palabra_oculta
+      .split(",")
+      .map((w) => w.trim())
+      .filter(Boolean);
+  }
 
-    // 1. Array de palabras a ocultar
-    let wordsToHide: string[] = [];
-    if (palabra_oculta) {
-      wordsToHide = palabra_oculta
-        .split(",")
-        .map((w) => w.trim())
-        .filter(Boolean);
-    }
-
-    // 2. Fallback por si backend omitió
-    if (wordsToHide.length === 0) {
-      const preposiciones = [
-        "in",
-        "on",
-        "at",
-        "to",
-        "into",
-        "for",
-        "with",
-        "about",
-        "of",
-        "from",
-        "by",
-        "onto",
-      ];
-      const palabras = frase.split(" ");
-      const found = palabras.find((w) =>
-        preposiciones.includes(w.toLowerCase().replace(/[^a-z]/g, "")),
-      );
-      if (found) {
-        wordsToHide.push(found.replace(/[^a-zA-Z]/g, ""));
-      } else {
-        const midWord = palabras[Math.max(0, Math.floor(palabras.length / 2))];
-        if (midWord) {
-          wordsToHide.push(midWord.replace(/[^a-zA-Z]/g, ""));
-        }
+  // 2. Fallback por si backend omitió
+  if (wordsToHide.length === 0) {
+    const preposiciones = [
+      "in",
+      "on",
+      "at",
+      "to",
+      "into",
+      "for",
+      "with",
+      "about",
+      "of",
+      "from",
+      "by",
+      "onto",
+    ];
+    const palabras = frase.split(" ");
+    const found = palabras.find((w) =>
+      preposiciones.includes(w.toLowerCase().replace(/[^a-z]/g, "")),
+    );
+    if (found) {
+      wordsToHide.push(found.replace(/[^a-zA-Z]/g, ""));
+    } else {
+      const midWord = palabras[Math.max(0, Math.floor(palabras.length / 2))];
+      if (midWord) {
+        wordsToHide.push(midWord.replace(/[^a-zA-Z]/g, ""));
       }
     }
+  }
 
-    wordsToHide = wordsToHide.filter((w) => w.length > 0);
-    if (wordsToHide.length === 0)
-      return {
-        tokens: [{ type: "text", val: frase }],
-        answerMap: {} as Record<number, string>,
-      };
+  wordsToHide = wordsToHide.filter((w) => w.length > 0);
+  if (wordsToHide.length === 0)
+    return { tokens: [{ type: "text", val: frase }], answerMap: {} };
 
-    // 3. Crear regex mágico de palabra completa (escapando caracteres especiales para no romper JS)
-    const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const regexPattern = `\\b(${wordsToHide.map(escapeRegex).join("|")})\\b`;
-    const regex = new RegExp(regexPattern, "gi");
+  // 3. Crear regex mágico de palabra completa (escapando caracteres especiales para no romper JS)
+  const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regexPattern = `\\b(${wordsToHide.map(escapeRegex).join("|")})\\b`;
+  const regex = new RegExp(regexPattern, "gi");
 
-    let match;
-    let lastIndex = 0;
-    let idCounter = 0;
-    const tokens: Token[] = [];
-    const answerMap: Record<number, string> = {};
+  let match;
+  let lastIndex = 0;
+  let idCounter = 0;
+  const tokens: Token[] = [];
+  const answerMap: Record<number, string> = {};
 
-    while ((match = regex.exec(frase)) !== null) {
-      if (match.index > lastIndex) {
-        tokens.push({
-          type: "text",
-          val: frase.substring(lastIndex, match.index),
-        });
-      }
-      tokens.push({ type: "input", val: match[0], id: idCounter });
-      answerMap[idCounter] = match[0];
-      idCounter++;
-      lastIndex = regex.lastIndex;
+  while ((match = regex.exec(frase)) !== null) {
+    if (match.index > lastIndex) {
+      tokens.push({
+        type: "text",
+        val: frase.substring(lastIndex, match.index),
+      });
     }
+    tokens.push({ type: "input", val: match[0], id: idCounter });
+    answerMap[idCounter] = match[0];
+    idCounter++;
+    lastIndex = regex.lastIndex;
+  }
 
-    if (lastIndex < frase.length) {
-      tokens.push({ type: "text", val: frase.substring(lastIndex) });
-    }
+  if (lastIndex < frase.length) {
+    tokens.push({ type: "text", val: frase.substring(lastIndex) });
+  }
 
-    if (tokens.length === 0) {
-      tokens.push({ type: "text", val: frase });
-    }
+  if (tokens.length === 0) {
+    tokens.push({ type: "text", val: frase });
+  }
 
-    return { tokens, answerMap };
-  };
+  return { tokens, answerMap };
+}
 
+function playAudio(text: string) {
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "en-US";
+    window.speechSynthesis.speak(utterance);
+  }
+}
+
+interface ClozeItemProps {
+  number: number;
+  exercise: Oracion;
+  source: Source;
+  onResult: (id: number, ok: boolean) => void;
+  onDelete: (id: number) => void;
+  onSaveToAnki: (frente: string, reverso: string, ejer: Oracion) => void;
+}
+
+function ClozeItemComponent({
+  number,
+  exercise,
+  source,
+  onResult,
+  onDelete,
+  onSaveToAnki,
+}: ClozeItemProps) {
   const { tokens, answerMap } = getClozeDetails(
-    currentOracion?.ingles || "",
-    currentOracion?.palabra_oculta,
+    exercise.ingles,
+    exercise.palabra_oculta,
   );
 
-  useEffect(() => {
-    cargarOraciones();
-  }, [origenSel]);
+  const [userInputs, setUserInputs] = useState<Record<number, string>>({});
+  const [status, setStatus] = useState<Status>("idle");
+  const [showHint, setShowHint] = useState(false);
+  const [wrongTokens, setWrongTokens] = useState<number[]>([]);
 
-  const cargarOraciones = async () => {
-    setLoading(true);
-    setCurrentIndex(0);
-    setUserInputs({});
-    setWrongIds([]);
-    setShowRespuesta(false);
-    setError(null);
-    try {
-      const res = await fetch(`/ejercicios/cloze?origen=${origenSel}`);
-      const data = await res.json();
-      if (data.oraciones) {
-        setOraciones(data.oraciones);
-      } else {
-        setOraciones([]);
-      }
-    } catch (e) {
-      setError("Error cargando ejercicios. " + e);
-    }
-    setLoading(false);
-  };
-
-  const generarConIA = async () => {
-    setGenerando(true);
-    try {
-      const res = await fetch("/ejercicios/generar_cloze", { method: "POST" });
-      const data = await res.json();
-      if (data.exito) {
-        if (origenSel === "ia") {
-          await cargarOraciones();
-        } else {
-          setOrigenSel("ia"); // Esto disparará cargarOraciones vía useEffect
-        }
-      } else {
-        alert(data.error);
-      }
-    } catch (e) {
-      alert("Error al conectar con IA.");
-    }
-    setGenerando(false);
-  };
-
-  const handleEliminar = async () => {
-    if (!currentOracion) return;
-    const confirm = window.confirm(
-      "¿Seguro que deseas eliminar permanentemente este ejercicio?",
-    );
-    if (!confirm) return;
-
-    try {
-      const res = await fetch(`/ejercicios/cloze/${currentOracion.id}`, {
-        method: "DELETE",
-      });
-      const data = await res.json();
-      if (data.exito) {
-        const nuevas = oraciones.filter((o) => o.id !== currentOracion.id);
-        if (nuevas.length > 0) {
-          setOraciones(nuevas);
-          if (currentIndex >= nuevas.length) setCurrentIndex(nuevas.length - 1);
-          setUserInputs({});
-          setWrongIds([]);
-          setShowRespuesta(false);
-        } else {
-          cargarOraciones();
-        }
-      } else {
-        alert(data.error);
-      }
-    } catch (e) {
-      alert("Error eliminando: " + e);
-    }
-  };
-
-  const handleComprobar = () => {
-    if (Object.keys(answerMap).length === 0) return;
-
+  const check = () => {
     let allCorrect = true;
     const errors: number[] = [];
 
     Object.keys(answerMap).forEach((key) => {
       const id = Number(key);
-      const expected = answerMap[id].toLowerCase().trim();
+      const expected = (answerMap[id] || "").toLowerCase().trim();
       const actual = (userInputs[id] || "").toLowerCase().trim();
       if (actual !== expected) {
         allCorrect = false;
@@ -224,50 +164,17 @@ export default function ClozePage() {
     });
 
     if (allCorrect) {
-      setShowRespuesta(true);
-      playAudio(currentOracion.ingles);
-      setWrongIds([]);
-    } else {
-      setWrongIds(errors);
-      errors.forEach((id) => {
-        const el = document.getElementById(`cloze-input-${id}`);
-        if (el) {
-          el.style.borderColor = "red";
-          el.style.animation = "shake 0.5s";
-          setTimeout(() => {
-            el.style.borderColor = "transparent";
-            el.style.animation = "";
-          }, 500);
-        }
-      });
-    }
-  };
-
-  const guardarEnAnki = () => {
-    let frenteHTML = "";
-    let palabrasSecretas = "";
-    tokens.forEach((tok) => {
-      if (tok.type === "text") frenteHTML += tok.val;
-      else {
-        frenteHTML += "____";
-        if (palabrasSecretas.length > 0) palabrasSecretas += ", ";
-        palabrasSecretas += tok.val;
+      if (status !== "correct") {
+        setStatus("correct");
+        setWrongTokens([]);
+        onResult(exercise.id, true);
+        playAudio(exercise.ingles);
       }
-    });
-
-    if (!palabrasSecretas) palabrasSecretas = "Palabras Clave";
-
-    setCartasAExportar([
-      {
-        frente: frenteHTML,
-        reverso: palabrasSecretas,
-        ejemplo_ingles: currentOracion.ingles,
-        ejemplo_espanol: currentOracion.espanol,
-        termino_imagen: palabrasSecretas,
-        categoria: "Vocabulario",
-      },
-    ]);
-    setIsModalOpen(true);
+    } else {
+      setStatus("wrong");
+      setWrongTokens(errors);
+      onResult(exercise.id, false);
+    }
   };
 
   const handleHint = () => {
@@ -284,431 +191,428 @@ export default function ClozePage() {
       }
     });
     setUserInputs(newInputs);
-    setWrongIds([]);
+    setStatus("idle");
+    setWrongTokens([]);
   };
 
-  const playAudio = (text: string) => {
-    if ("speechSynthesis" in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "en-US";
-      window.speechSynthesis.speak(utterance);
-    }
-  };
-
-  const nextQuestion = () => {
-    setUserInputs({});
-    setWrongIds([]);
-    setShowRespuesta(false);
-    if (currentIndex + 1 < oraciones.length) {
-      setCurrentIndex(currentIndex + 1);
-    } else {
-      cargarOraciones();
-    }
-  };
-
-  useEffect(() => {
-    const handleGlobalKey = (e: KeyboardEvent) => {
-      if (e.repeat) return; // Si mantiene presionada la tecla, la ignoramos
-      if (e.target instanceof HTMLInputElement) return; // Si presionó enter dentro de la caja de texto, ignorar
-
-      if (showRespuesta && !isModalOpen && e.key === "Enter") {
-        e.preventDefault();
-        nextQuestion();
+  const triggerSaveToAnki = () => {
+    let frenteHTML = "";
+    let palabrasSecretas = "";
+    tokens.forEach((tok) => {
+      if (tok.type === "text") frenteHTML += tok.val;
+      else {
+        frenteHTML += "____";
+        if (palabrasSecretas.length > 0) palabrasSecretas += ", ";
+        palabrasSecretas += tok.val;
       }
-    };
-    window.addEventListener("keydown", handleGlobalKey);
-    return () => window.removeEventListener("keydown", handleGlobalKey);
-  });
+    });
 
-  const BotonGenerar = () => (
-    <div style={{ marginTop: "2rem", textAlign: "center" }}>
-      <button
-        onClick={generarConIA}
-        disabled={generando}
-        className="new-chat-btn"
-        style={{
-          width: "auto",
-          background: "linear-gradient(45deg, #FF9800, #F44336)",
-          padding: "12px 24px",
-          opacity: generando ? 0.7 : 1,
-        }}
-      >
-        {generando ? (
-          <span
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              justifyContent: "center",
-            }}
-          >
-            <Loader2 size={16} /> Analizando chats y creando...
-          </span>
-        ) : (
-          <span
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              justifyContent: "center",
-            }}
-          >
-            <Sparkles size={16} /> Generar ejercicios con IA
-          </span>
-        )}
-      </button>
-    </div>
-  );
-
-  const headerTabs = (
-    <>
-      <h2
-        style={{
-          color: "black",
-          marginBottom: "0.5rem",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-        }}
-      >
-        <Puzzle size={24} /> Práctica de Cloze
-      </h2>
-      <p style={{ marginBottom: "1.5rem", color: "#666" }}>
-        Completa la palabra faltante según el contexto de la traducción en
-        español.
-      </p>
-      <div style={{ display: "flex", gap: "10px", marginBottom: "2rem" }}>
-        <button
-          onClick={() => setOrigenSel("anki")}
-          style={{
-            padding: "8px 16px",
-            borderRadius: "20px",
-            border: "none",
-            cursor: "pointer",
-            background: origenSel === "anki" ? "#4CAF50" : "#ddd",
-            color: origenSel === "anki" ? "white" : "#444",
-            fontWeight: "bold",
-            outline: "none",
-            transition: "0.2s",
-          }}
-        >
-          <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <BookOpen size={16} /> Tarjetas Anki
-          </span>
-        </button>
-        <button
-          onClick={() => setOrigenSel("ia")}
-          style={{
-            padding: "8px 16px",
-            borderRadius: "20px",
-            border: "none",
-            cursor: "pointer",
-            background: origenSel === "ia" ? "#FF9800" : "#ddd",
-            color: origenSel === "ia" ? "white" : "#444",
-            fontWeight: "bold",
-            outline: "none",
-            transition: "0.2s",
-          }}
-        >
-          <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <Sparkles size={16} /> Ejercicios IA
-          </span>
-        </button>
-      </div>
-    </>
-  );
+    if (!palabrasSecretas) palabrasSecretas = "Palabras Clave";
+    onSaveToAnki(frenteHTML, palabrasSecretas, exercise);
+  };
 
   return (
-    <div
-      className="historias-container"
-      style={{
-        padding: "2rem",
-        color: "black",
-        width: "100%",
-        maxWidth: "800px",
-        margin: "0 auto",
-      }}
+    <li
+      className={cn(
+        // Reglas base
+        "rounded-xl border bg-card p-4 transition-colors md:p-6 shadow-sm relative group",
+        status === "correct" // inyecta solo si acertó (si hay coincidencia con base, prioriza este)
+          ? "border-emerald-500/40 bg-emerald-500/10 dark:bg-emerald-500/15"
+          : status === "wrong" // inyecta solo si se equivocó
+            ? "border-destructive/40"
+            : "border-border",
+      )}
     >
-      {headerTabs}
+      <button
+        onClick={() => onDelete(exercise.id)}
+        className="absolute top-4 right-4 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+        title="Eliminar este ejercicio"
+      >
+        <Trash2 className="size-4" />
+      </button>
 
-      {loading ? (
-        <div style={{ color: "black", padding: "20px" }}>
-          Cargando ejercicios...
-        </div>
-      ) : error ? (
-        <div style={{ color: "black", padding: "20px" }}>{error}</div>
-      ) : !oraciones.length ? (
-        <>
-          <div
-            style={{
-              background: "#ffffffff",
-              padding: "2rem",
-              borderRadius: "12px",
-              borderLeft: "5px solid #FF9800",
+      <div className="flex items-start gap-4">
+        <span className="pt-1.5 font-serif text-sm text-muted-foreground tabular-nums opacity-70">
+          {String(number).padStart(2, "0")}
+        </span>
+        <div className="min-w-0 flex-1">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              check();
             }}
+            className="font-serif text-xl leading-loose md:text-2xl mb-4"
           >
-            {origenSel === "anki"
-              ? "No tienes ejercicios provenientes de Anki. ¡Ve a tus chats y extrae vocabulario a tus mazos para que aparezcan aquí automáticamente!"
-              : "No hay ejercicios creados. ¡Pulsa el botón de abajo para que la IA escudriñe tus chats y cree nuevos ejercicios ahora mismo!"}
-          </div>
-          {origenSel === "ia" && <BotonGenerar />}
-        </>
-      ) : (
-        <>
-          <div
-            style={{
-              background: "#2a2a2a",
-              padding: "2rem",
-              borderRadius: "12px",
-              boxShadow: "0 8px 30px rgba(0,0,0,0.3)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "flex-start",
-              }}
-            >
-              <h3
-                style={{
-                  color: "#eee",
-                  fontWeight: "300",
-                  marginRight: "1rem",
-                }}
-              >
-                {currentOracion.espanol}
-              </h3>
+            {tokens.map((tok, i) => {
+              if (tok.type === "text") {
+                return (
+                  <span
+                    key={i}
+                    className={
+                      status === "correct"
+                        ? "text-emerald-600 dark:text-emerald-400 font-medium"
+                        : "text-foreground"
+                    }
+                  >
+                    {tok.val}
+                  </span>
+                );
+              } else {
+                const id = tok.id;
+                const isWrong = wrongTokens.includes(id);
+                return (
+                  <input
+                    key={i}
+                    aria-label={`Hueco del ejercicio`}
+                    value={userInputs[id] || ""}
+                    onChange={(e) => {
+                      setUserInputs({ ...userInputs, [id]: e.target.value });
+                      if (status !== "idle") setStatus("idle");
+                    }}
+                    readOnly={status === "correct"}
+                    autoComplete="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    style={{
+                      width: `${Math.max((answerMap[id] || "").length, 4) + 1}ch`,
+                    }}
+                    className={cn(
+                      "border-b-2 bg-transparent px-1 mx-1 text-center font-sans font-medium outline-none transition-colors inline-block text-[0.9em]",
+                      status === "correct" &&
+                        "border-emerald-500 text-emerald-600 dark:text-emerald-400",
+                      isWrong && "border-destructive text-destructive",
+                      status === "idle" &&
+                        !isWrong &&
+                        "border-border placeholder:text-muted-foreground hover:border-primary/50 focus:border-primary focus:bg-primary/5",
+                    )}
+                  />
+                );
+              }
+            })}
+            {status === "idle" && (
               <button
-                onClick={handleEliminar}
-                title="Eliminar este ejercicio"
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "1.4rem",
-                  opacity: 0.6,
-                  transition: "opacity 0.2s",
-                }}
-                onMouseOver={(e) => (e.currentTarget.style.opacity = "1")}
-                onMouseOut={(e) => (e.currentTarget.style.opacity = "0.6")}
+                type="submit"
+                className="ml-2 inline-flex translate-y-[-2px] items-center justify-center rounded-md p-1.5 text-muted-foreground hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10 transition-colors"
+                title="Comprobar respuesta (Enter)"
               >
-                <Trash2 size={24} />
+                <Check className="size-5" />
+              </button>
+            )}
+            <button type="submit" className="hidden" aria-hidden="true" />
+          </form>
+
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+            <span className="rounded-md border border-border bg-muted/50 px-2 py-1 flex items-center gap-1.5 font-medium">
+              <span
+                className={
+                  source === "anki" ? "text-blue-500" : "text-orange-500"
+                }
+              >
+                {source === "anki" ? "Anki" : "IA"}
+              </span>
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setShowHint((s) => !s)}
+              className="flex items-center gap-1 hover:text-foreground transition-colors font-medium"
+            >
+              <Languages className="size-3.5" />
+              {showHint ? "Ocultar traducción" : "Ver traducción"}
+            </button>
+
+            {status === "idle" && (
+              <button
+                type="button"
+                onClick={handleHint}
+                className="flex items-center gap-1 hover:text-foreground transition-colors font-medium border-l border-border pl-4"
+              >
+                <Lightbulb className="size-3.5" /> Dar una pista
+              </button>
+            )}
+
+            <div className="flex items-center gap-3 border-l border-border pl-4">
+              {status === "correct" && (
+                <>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                    <PartyPopper className="size-3.5" /> ¡Correcto!
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => playAudio(exercise.ingles)}
+                    className="hover:text-foreground transition-colors flex items-center gap-1"
+                  >
+                    <Volume2 className="size-3.5" /> Escuchar
+                  </button>
+                  {source === "ia" && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        triggerSaveToAnki();
+                      }}
+                      className="hover:text-fuchsia-500 transition-colors flex items-center gap-1 text-fuchsia-600 font-medium"
+                    >
+                      <Brain className="size-3.5" /> A Anki
+                    </button>
+                  )}
+                </>
+              )}
+              {status === "wrong" && (
+                <span className="text-destructive font-medium">
+                  {" "}
+                  {/*Aplicacion de text-destructive que es ROJO*/}
+                  Vuelve a intentarlo
+                </span>
+              )}
+            </div>
+          </div>
+          {showHint && (
+            <p className="mt-4 text-[15px] font-medium text-muted-foreground border-l-2 border-primary/40 pl-3">
+              {exercise.espanol}
+            </p>
+          )}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+export default function ClozePage() {
+  const [oraciones, setOraciones] = useState<Oracion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [generando, setGenerando] = useState(false);
+  const [source, setSource] = useState<Source>("anki");
+  const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<Record<number, boolean>>({});
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [cartasAExportar, setCartasAExportar] = useState<CartaAnki[]>([]);
+
+  useEffect(() => {
+    cargarOraciones();
+  }, [source]);
+
+  const cargarOraciones = async () => {
+    setLoading(true);
+    setResults({});
+    setError(null);
+    try {
+      const res = await fetch(`/ejercicios/cloze?origen=${source}`);
+      if (!res.ok) throw new Error("Error en la petición de ejercicios.");
+      const data = await res.json();
+      setOraciones(data.oraciones || []);
+    } catch (e: any) {
+      setError("Error cargando ejercicios: " + e.message);
+      setOraciones([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generarConIA = async () => {
+    setGenerando(true);
+    try {
+      const res = await fetch("/ejercicios/generar_cloze", { method: "POST" });
+      const data = await res.json();
+      if (data.exito) {
+        if (source === "ia") await cargarOraciones();
+        else setSource("ia");
+      } else {
+        alert(data.error);
+      }
+    } catch (e) {
+      alert("Error al conectar con IA.");
+    } finally {
+      setGenerando(false);
+    }
+  };
+
+  const handleEliminar = async (id: number) => {
+    const confirm = window.confirm(
+      "¿Seguro que deseas eliminar permanentemente este ejercicio?",
+    );
+    if (!confirm) return;
+
+    try {
+      const res = await fetch(`/ejercicios/cloze/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.exito) {
+        setOraciones(oraciones.filter((o) => o.id !== id));
+      } else {
+        alert(data.error);
+      }
+    } catch (e) {
+      alert("Error eliminando ejercicio: " + e);
+    }
+  };
+
+  const handleSaveToAnki = (frente: string, reverso: string, ejer: Oracion) => {
+    setCartasAExportar([
+      {
+        frente,
+        reverso,
+        ejemplo_ingles: ejer.ingles,
+        ejemplo_espanol: ejer.espanol,
+        termino_imagen: reverso,
+        categoria: "Vocabulario",
+      },
+    ]);
+    setIsModalOpen(true);
+  };
+
+  const tabs: { id: Source; label: string; count: number; icon: any }[] = [
+    {
+      id: "anki",
+      label: "De tus cartas Anki",
+      count: source === "anki" ? oraciones.length : 0,
+      icon: BookOpen,
+    },
+    {
+      id: "ia",
+      label: "Generados con IA",
+      count: source === "ia" ? oraciones.length : 0,
+      icon: Sparkles,
+    },
+  ];
+  const correct = oraciones.filter((e) => results[e.id]).length;
+
+  return (
+    <div className="flex h-dvh w-full overflow-hidden bg-background font-sans">
+      <main className="flex-1 overflow-y-auto relative flex flex-col bg-background">
+        <header className="flex items-center gap-3 border-b border-border pl-16 pr-4 py-3 md:px-8 md:py-4 bg-background z-10 sticky top-0">
+          <div className="min-w-0 flex-1 flex flex-col">
+            <h2 className="truncate font-serif text-2xl font-bold md:text-3xl flex items-center gap-2">
+              Ejercicios Cloze
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+              Completa la palabra faltante según el contexto de la traducción en
+              español.
+            </p>
+          </div>
+        </header>
+
+        <div className="px-4 py-8 md:px-8 max-w-4xl mx-auto w-full">
+          <div
+            role="tablist"
+            aria-label="Origen de los ejercicios"
+            className="flex gap-6 border-b border-border"
+          >
+            {tabs.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                role="tab"
+                type="button"
+                aria-selected={source === id}
+                onClick={() => setSource(id)}
+                className={cn(
+                  "-mb-px flex items-center gap-2 border-b-2 pb-3 text-[15px] transition-colors",
+                  source === id
+                    ? "border-primary font-semibold text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Icon className="size-4" /> {label}
+              </button>
+            ))}
+          </div>
+
+          {source === "ia" && (
+            <div className="mt-6 flex flex-col gap-3 rounded-xl border border-border bg-card p-5 sm:flex-row sm:items-center shadow-sm">
+              <div className="flex-1">
+                <h3 className="font-medium text-foreground">
+                  Crear ejercicios con IA
+                </h3>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  La IA creará ejercicios basados en tu estudio.
+                </p>
+              </div>
+              <button
+                onClick={generarConIA}
+                disabled={generando}
+                className="inline-flex h-10 px-5 items-center justify-center gap-2 rounded-md bg-foreground text-background text-sm font-medium transition-colors hover:bg-foreground/90 disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap active:scale-95 shadow-sm"
+              >
+                {generando ? (
+                  <Loader2 className="animate-spin size-4" />
+                ) : (
+                  <Sparkles className="size-4" />
+                )}
+                {generando ? "Analizando chats..." : "Generar ejercicios"}
               </button>
             </div>
+          )}
 
-            <h1
-              style={{
-                margin: "2rem 0",
-                color: "white",
-                fontSize: "2rem",
-                letterSpacing: "1px",
-                lineHeight: "2.5em",
-              }}
-            >
-              {tokens.map((tok, i) => {
-                if (tok.type === "text") {
-                  return (
-                    <span
-                      key={i}
-                      style={{ color: showRespuesta ? "#4CAF50" : "inherit" }}
-                    >
-                      {tok.val}
-                    </span>
-                  );
-                } else {
-                  if (showRespuesta) {
-                    return (
-                      <span
-                        key={i}
-                        style={{ color: "#4CAF50", fontWeight: "bold" }}
-                      >
-                        {tok.val}
-                      </span>
-                    );
-                  }
-                  return (
-                    <input
-                      key={i}
-                      id={`cloze-input-${(tok as any).id}`}
-                      type="text"
-                      value={userInputs[(tok as any).id] || ""}
-                      onChange={(e) =>
-                        setUserInputs({
-                          ...userInputs,
-                          [(tok as any).id]: e.target.value,
-                        })
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleComprobar();
-                        }
-                      }}
-                      style={{
-                        padding: "8px 12px",
-                        margin: "0 8px",
-                        borderRadius: "8px",
-                        border: `2px solid ${
-                          wrongIds.includes((tok as any).id) ? "red" : "#555"
-                        }`,
-                        background: "#333",
-                        color: "white",
-                        fontSize: "2rem",
-                        width: `${Math.max(3, tok.val.length)}ch`,
-                        textAlign: "center",
-                        outline: "none",
-                        transition: "border-color 0.3s ease",
-                      }}
-                      autoFocus={(tok as any).id === 0}
-                    />
-                  );
-                }
-              })}
-            </h1>
-
-            {!showRespuesta && (
-              <div
-                style={{
-                  display: "flex",
-                  gap: "10px",
-                  marginTop: "20px",
-                  alignItems: "center",
-                }}
-              >
-                <div style={{ flexGrow: 1 }} />
-                <button
-                  onClick={handleHint}
-                  className="new-chat-btn"
-                  style={{
-                    width: "auto",
-                    padding: "12px 20px",
-                    background: "#444",
-                  }}
-                >
-                  <span
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                    }}
-                  >
-                    <Lightbulb size={16} /> Pista
-                  </span>
-                </button>
-                <button
-                  onClick={handleComprobar}
-                  className="new-chat-btn confirm"
-                  style={{
-                    width: "auto",
-                    padding: "12px 20px",
-                    marginLeft: "auto",
-                  }}
-                >
-                  <span
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                    }}
-                  >
-                    <Check size={16} /> Comprobar
-                  </span>
-                </button>
+          {loading ? (
+            <div className="mt-12 flex flex-col items-center text-muted-foreground">
+              <Loader2 className="size-8 animate-spin mb-4 text-primary/50" />
+              <p>Cargando ejercicios...</p>
+            </div>
+          ) : error ? (
+            <div className="mt-12 p-4 border border-destructive/50 bg-destructive/10 text-destructive rounded-lg text-center">
+              {error}
+            </div>
+          ) : oraciones.length === 0 ? (
+            <div className="mt-12 p-8 border border-border bg-card rounded-xl text-center flex flex-col items-center">
+              <div className="bg-muted size-16 rounded-full flex items-center justify-center mb-4">
+                <Puzzle className="size-8 text-muted-foreground/50" />
               </div>
-            )}
+              <h3 className="text-lg font-medium mb-2 text-foreground">
+                El cofre está vacío
+              </h3>
+              <p className="text-muted-foreground text-sm max-w-xs">
+                {source === "anki"
+                  ? "Extrae vocabulario de tus conversaciones en los chats a tus mazos de Anki para que aparezcan aquí automáticamente."
+                  : "No tienes ejercicios IA creados. ¡Presiona el botón superior para crear algunos ahora!"}
+              </p>
+            </div>
+          ) : (
+            <>
+              <ol className="mt-8 space-y-4 pb-20">
+                {oraciones.map((exercise, i) => (
+                  <ClozeItemComponent
+                    key={exercise.id}
+                    number={i + 1}
+                    exercise={exercise}
+                    source={source}
+                    onResult={(id, ok) =>
+                      setResults((r) => ({ ...r, [id]: ok }))
+                    }
+                    onDelete={handleEliminar}
+                    onSaveToAnki={handleSaveToAnki}
+                  />
+                ))}
+              </ol>
 
-            {showRespuesta && (
-              <div
-                style={{
-                  marginTop: "20px",
-                  display: "flex",
-                  gap: "15px",
-                  alignItems: "center",
-                }}
-              >
-                <div
-                  style={{
-                    color: "#4CAF50",
-                    fontWeight: "bold",
-                    fontSize: "1.2rem",
-                    flexGrow: 1,
-                  }}
-                >
-                  ¡Acertaste! <PartyPopper size={20} />
+              {/* Fixated progress bar bottom left/right or inline relative */}
+              <div className="fixed bottom-0 md:bottom-6 left-0 md:left-1/2 md:-translate-x-1/2 w-full md:w-[90%] md:max-w-xl bg-card/95 backdrop-blur-md border-t md:border border-border p-4 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)] md:rounded-2xl z-20 flex items-center justify-between gap-6">
+                <span className="text-muted-foreground text-sm flex-shrink-0">
+                  <span className="font-bold text-foreground tabular-nums text-base mr-1">
+                    {correct}
+                  </span>
+                  de {oraciones.length} correctas
+                </span>
+                <div className="h-2 flex-grow overflow-hidden rounded-full bg-muted/60 relative">
+                  <div
+                    className="absolute top-0 left-0 h-full bg-success transition-all duration-500 ease-out rounded-full"
+                    style={{
+                      width: `${oraciones.length ? (correct / oraciones.length) * 100 : 0}%`,
+                    }}
+                  />
                 </div>
-                <button
-                  onClick={() => playAudio(currentOracion.ingles)}
-                  className="new-chat-btn"
-                  style={{ width: "auto", background: "#444" }}
-                >
-                  <span
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                    }}
-                  >
-                    <Volume2 size={16} /> Escuchar
-                  </span>
-                </button>
-                {origenSel === "ia" && (
-                  <button
-                    onClick={guardarEnAnki}
-                    className="new-chat-btn"
-                    style={{ width: "auto", background: "#8E24AA" }}
-                  >
-                    <span
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                      }}
-                    >
-                      <Brain size={16} /> Guardar en Anki
-                    </span>
-                  </button>
-                )}
-                <button
-                  onClick={nextQuestion}
-                  className="new-chat-btn confirm"
-                  style={{ marginLeft: "auto", width: "auto" }}
-                >
-                  <span
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                    }}
-                  >
-                    Siguiente <ArrowRight size={16} />
-                  </span>
-                </button>
               </div>
-            )}
-          </div>
-          {origenSel === "ia" && <BotonGenerar />}
-        </>
-      )}
+            </>
+          )}
+        </div>
+      </main>
 
       <ModalAnki
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         cartasIniciales={cartasAExportar}
         chatId={0}
-        origen="historia"
+        origen="cloze"
       />
-
-      <style>{`
-        @keyframes shake {
-            0% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            50% { transform: translateX(5px); }
-            75% { transform: translateX(-5px); }
-            100% { transform: translateX(0); }
-        }
-      `}</style>
     </div>
   );
 }
