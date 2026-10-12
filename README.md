@@ -10,18 +10,45 @@ Aplicación web impulsada por IA (Google Gemini) diseñada para el aprendizaje d
 
 [![Ver Demo de Tutor IA en YouTube](https://img.youtube.com/vi/Xd2Hkfm1fEU/maxresdefault.jpg)](https://youtu.be/Xd2Hkfm1fEU)
 
-> ☝️ _Haz clic para ver la demostración de uso en video explorando todas sus características._
+> ☝️ _Haz clic para ver la demostración de uso en video._
 
 ---
 
 ## Características Principales
 
-- 💬 **Chat como Tutor:** Práctica conversacional impulsada por Gemini Flash, con un historial de chats manejado localmente.
-- 📚 **Historias con temática:** La IA crea historias personalizadas según tu nivel (A1 a C2) y temática solicitada. Incluye 3 modos de práctica: Comprensión (audio + traducción), Adquisición (audio + formato IPA) e Inmersión (solo audio).
-- 🗣️ **Fonética:** Aprendizaje de fonemas individuales (IPA) y discurso conectado (Connected Speech) con audios pregenerados mediante `edge-tts`.
-- 🧩 **Ejercicios Cloze:** Relleno de espacios en blanco basados en flashcards generadas por el sistema.
-- 🧠 **Sincronización con Anki:** Si utilizas AnkiConnect, la aplicación inyecta automáticamente nuevas palabras y flashcards con audio, imagenes, ejemplos, traducción y formato IPA, directamente a tu mazo local para repaso espaciado.
-- 🔗 **Autenticación Multi-usuario:** Acceso mediante Firebase Auth.
+- 💬 **Chat como Tutor:** Práctica conversacional impulsada por Gemini, con historial de los chats.
+
+  <p align="center">
+    <img src="./docs/screenshots/chats.png" alt="Chat como Tutor" width="100%" />
+  </p>
+
+- 📚 **Historias Dinámicas & Audio:** La IA crea historias personalizadas según tu nivel (A1 a C2) y temática solicitada. Incluye 3 modos de práctica: Comprensión (audio + traducción), Adquisición (audio + formato IPA) e Inmersión (solo audio).
+
+  <p align="center">
+    <img src="./docs/screenshots/historia.png" alt="Historias Dinámicas" width="100%" />
+  </p>
+
+- 🗣️ **Fonética Interactiva:** Aprendizaje de los 44 fonemas del inglés (IPA) y discurso conectado (Connected Speech).
+
+  <p align="center">
+    <img src="./docs/screenshots/fonetica.png" alt="Fonética Interactiva" width="100%" />
+  </p>
+
+- 🧩 **Ejercicios Cloze:** Relleno de espacios en blanco basados en flashcards generadas por el sistema o por IA, con validación visual y entrega de pistas.
+
+  <p align="center">
+    <img src="./docs/screenshots/cloze.png" alt="Ejercicios Cloze" width="100%" />
+  </p>
+
+- 🧠 **Sincronización con Anki:** Si utilizas AnkiConnect, la aplicación inyecta automáticamente nuevas palabras y flashcards con audio, imágenes, ejemplos, traducción y formato IPA directamente a tu mazo para repaso espaciado.
+
+  <p align="center">
+    <img src="./docs/screenshots/modal.png" alt="Exportación a Anki" width="100%" />
+  </p>
+
+- 🎨 **Diseño Responsive & Theme Mode:** Aplicación Adaptada tanto a pantallas de escritorio como dispositivos móviles. Selector de tema claro/oscuro con preferencia el tema del sistema del usuario.
+
+- 🔗 **Autenticación Multi-usuario:** Acceso y control de sesión seguro mediante Firebase Auth.
 
 ---
 
