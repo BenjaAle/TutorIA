@@ -28,10 +28,10 @@ Aplicación web impulsada por IA (Google Gemini) diseñada para el aprendizaje d
     <img src="./docs/screenshots/historia.png" alt="Historias Dinámicas" width="100%" />
   </p>
 
-- 🗣️ **Fonética Interactiva:** Aprendizaje de los 44 fonemas del inglés (IPA) y discurso conectado (Connected Speech).
+- 🗣️ **Fonética:** Aprendizaje de los 44 fonemas del inglés (IPA) y discurso conectado (Connected Speech).
 
   <p align="center">
-    <img src="./docs/screenshots/fonetica.png" alt="Fonética Interactiva" width="100%" />
+    <img src="./docs/screenshots/fonetica.png" alt="Fonética" width="100%" />
   </p>
 
 - 🧩 **Ejercicios Cloze:** Relleno de espacios en blanco basados en flashcards generadas por el sistema o por IA, con validación visual y entrega de pistas.
