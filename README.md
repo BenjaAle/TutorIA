@@ -4,6 +4,16 @@
 
 Aplicación web impulsada por IA (Google Gemini) diseñada para el aprendizaje del idioma inglés. El sistema no solo funciona como un chatbot conversacional, sino que integra módulos de fonética, comprensión auditiva mediante historias generadas dinámicamente, y conexión directa con **Anki** para retención a largo plazo.
 
+---
+
+## 🎥 Demostración en Video
+
+[![Ver Demo de Tutor IA en YouTube](https://img.youtube.com/vi/Xd2Hkfm1fEU/maxresdefault.jpg)](https://youtu.be/Xd2Hkfm1fEU)
+
+> ☝️ _Haz clic para ver la demostración de uso en video explorando todas sus características._
+
+---
+
 ## Características Principales
 
 - 💬 **Chat como Tutor:** Práctica conversacional impulsada por Gemini Flash, con un historial de chats manejado localmente.
@@ -70,6 +80,7 @@ source venv/bin/activate
 ```
 
 Instalar dependencias
+
 ```bash
 pip install requeriments.txt
 ```
@@ -91,7 +102,7 @@ Además, necesitas el archivo de credenciales de servicio de tu proyecto en Fire
 uvicorn main:app --reload
 ```
 
-El servidor backend estará corriendo en `http://localhost:8000`. 
+El servidor backend estará corriendo en `http://localhost:8000`.
 
 ### 3. Configurar el Frontend (React)
 
@@ -119,6 +130,5 @@ Si quieres extraer vocabulario y que se guarde en Anki:
 4. Crea un mazo en tu Anki llamado **`Ingles_IA`** con tipo de nota **`Basic`** (o cambia los nombres en el archivo `config.py` del backend para que coincidan con tu mazo actual).
 
 ---
-
 
 Hecho por Benjamín - ¡Happy Learning!

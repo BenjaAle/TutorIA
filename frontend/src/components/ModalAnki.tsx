@@ -420,7 +420,7 @@ export default function ModalAnki({
               onClick={handleConfirmarTodo}
               disabled={sent || injectedLoading}
             >
-              {injectedLoading ? "Enviando..." : "Enviar al PC (FastAPI)"}
+              {injectedLoading ? "Enviando..." : "Enviar a Anki"}
             </Button>
           </div>
         </DialogFooter>
