@@ -1,4 +1,4 @@
-# 🧠 Tutor de Inglés con IA (React + FastAPI)
+# 🧠 Tutor de Inglés con IA (ReactTS + FastAPI)
 
 ![React](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61DAFB?logo=react&logoColor=black) ![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?logo=fastapi&logoColor=white)
 
