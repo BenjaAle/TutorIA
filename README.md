@@ -78,8 +78,8 @@ Sigue estos pasos para levantar el entorno de desarrollo en tu máquina local.
 ### 1. Clonar el repositorio
 
 ```bash
-git clone https://github.com/BenjaAle/TutorIA_React_FastAPI.git
-cd TutorIA_React_FastAPI
+git clone https://github.com/BenjaAle/TutorIA.git
+cd TutorIA
 ```
 
 ### 2. Configurar el Backend (FastAPI)
