@@ -20,7 +20,12 @@ load_dotenv()
 api_key_gemini = os.getenv("GEMINI_API_KEY")
 api_key_pexels = os.getenv("PEXELS_API_KEY")
 
-if not api_key_gemini or not api_key_pexels:
+# Cloudinary
+CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
+CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
+CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
+
+if not api_key_gemini or not api_key_pexels:# or not CLOUDINARY_CLOUD_NAME or not CLOUDINARY_API_KEY or not CLOUDINARY_API_SECRET:
     raise ValueError("No se encontraron las claves de API")
 
 GEMINI_MODEL = "gemini-2.5-flash"

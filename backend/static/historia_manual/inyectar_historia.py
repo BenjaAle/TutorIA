@@ -20,13 +20,22 @@ GRANDPARENT_DIR = os.path.dirname(PARENT_DIR)  # Sube a "backend"
 DB_PATH = os.path.join(GRANDPARENT_DIR, "tutor.db")
 JSON_PATH = os.path.join(BASE_DIR, "historia_manual.json")
 
+TXT = [
+    os.path.join(BASE_DIR, "texto_en.txt"),
+    os.path.join(BASE_DIR, "texto_es.txt"),
+    os.path.join(BASE_DIR, "texto_ipa.txt")
+]
+
 # Usamos la misma voz premium que en tu servidor web
 VOZ_IA = "en-US-AvaNeural"
 
 
-async def generar_audio(texto, ruta):
-    communicate = edge_tts.Communicate(texto, VOZ_IA, rate="-7%")
-    await communicate.save(ruta)
+async def generar_audio(texto, ruta, semaforo):
+    async with semaforo:
+        communicate = edge_tts.Communicate(texto, VOZ_IA, rate="-7%")
+        await communicate.save(ruta)
+        # Pausa para evitar bloqueo
+        await asyncio.sleep(0.5)
 
 
 async def inyectar_historia():
@@ -57,8 +66,11 @@ async def inyectar_historia():
     # 1. Base de Datos: Insertar historia principal
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
+    
+    user_id = input("Ingresa tu correo: ").strip().lower()
+    
     c.execute(
-        "INSERT INTO historias (titulo, tematica) VALUES (?, ?)", (titulo, tematica)
+        "INSERT INTO historias (titulo, tematica, user_id) VALUES (?, ?, ?)", (titulo, tematica, user_id)
     )
     historia_id = c.lastrowid
 
@@ -70,13 +82,15 @@ async def inyectar_historia():
     # 3. Audio: Generar las tareas concurrentes
     tareas_audio = []
     print(f"Generando {len(lineas)} audios simultáneamente...")
+    
+    semaforo = asyncio.Semaphore(3)
 
     for i, linea in enumerate(lineas):
         texto_en = linea.get("en", "").strip()
         ruta_archivo = os.path.join(carpeta_historia_absoluta, f"linea_{i}.mp3")
 
         # Agregamos la tarea a la cola
-        tareas_audio.append(generar_audio(texto_en, ruta_archivo))
+        tareas_audio.append(generar_audio(texto_en, ruta_archivo, semaforo))
 
     # Ejecuta la generación de audios y espera a que termine
     if tareas_audio:
@@ -105,6 +119,18 @@ async def inyectar_historia():
     conn.close()
 
     print(f"\n '{titulo}' se ha inyectado con audio.")
+    
+    # Vaciar los 3 txt
+    print("\nIniciando limpieza: vaciando archivos temporales...")
+    for archivo_txt in TXT:
+        if os.path.exists(archivo_txt):
+            try:
+                # Al abrir en modo 'w' y no escribir nada, el archivo se vacía
+                with open(archivo_txt, 'w', encoding='utf-8') as f:
+                    pass
+                print(f"🧹 Vaciado: {os.path.basename(archivo_txt)}")
+            except Exception as e:
+                print(f"⚠️ No se pudo vaciar {os.path.basename(archivo_txt)}: {e}")
 
 
 if __name__ == "__main__":

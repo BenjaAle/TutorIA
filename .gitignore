@@ -29,7 +29,7 @@ Thumbs.db
 
 # Historia manual y audios
 backend/static/historia_manual/historia_manual.json
-backend/static/historia_manual/texto_crudo.txt
+*.txt
 backend/static/audios/
 
 # Antiguos

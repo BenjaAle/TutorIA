@@ -44,7 +44,7 @@ const MODES: { id: Mode; label: string; detail: string }[] = [
   { id: "lectura", label: "Inglés + IPA", detail: "Sin español" },
   { id: "escucha", label: "Solo Audio", detail: "Inmersión total" },
 ];
-const RATES = [0.75, 1, 1.25];
+const RATES = [0.75, 1, 1.25, 1.5];
 
 export default function HistoriasPage() {
   // Sidebar State
@@ -73,7 +73,7 @@ export default function HistoriasPage() {
   const [lineas, setLineas] = useState<LineaHistoria[]>([]);
   const [modo, setModo] = useState<Mode>("completo");
   const [indiceAudio, setIndiceAudio] = useState(-1);
-  const [velocidad, setVelocidad] = useState(1.0);
+  const [velocidad, setVelocidad] = useState(1.5);
   const [isPlaying, setIsPlaying] = useState(false);
 
   // Vocab State
@@ -322,7 +322,7 @@ export default function HistoriasPage() {
     window.getSelection()?.removeAllRanges();
   };
 
-  // Atajos de teclado
+  // ATAJOS DEL TECLADO
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
@@ -355,11 +355,11 @@ export default function HistoriasPage() {
       }
 
       // Navegación con flechas izquierda / derecha
-      if (e.code === "ArrowLeft") {
+      if (e.code === "KeyW") {
         e.preventDefault();
         if (indiceAudio > 0) reproducirDesde(indiceAudio - 1);
       }
-      if (e.code === "ArrowRight") {
+      if (e.code === "KeyS") {
         e.preventDefault();
         if (indiceAudio < lineas.length - 1) reproducirDesde(indiceAudio + 1);
       }
