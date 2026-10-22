@@ -1,68 +1,57 @@
-import sqlite3
-import random
 import json
-import re
-import os
-import base64
+import random
 
 # pyrefly: ignore [missing-import]
 from fastapi import APIRouter, Depends
+from sqlalchemy import select, text
+from sqlalchemy.orm import Session
+from google.genai import types
+
 from config import (
     get_current_user,
     client,
     GEMINI_MODEL,
-    invoke_anki,
-    NOMBRE_TIPO_CARTA,
-    NOMBRE_MAZO,
-    generar_audio,
-    CAMPO_FRENTE,
-    CAMPO_REVERSO,
 )
-
-# pyrefly: ignore [missing-import]
-from google.genai import types
+from database import get_db
+from db_models import OracionCloze
 
 router = APIRouter(prefix="/ejercicios", tags=["Ejercicios"])
 
 
 @router.get("/cloze")
 def obtener_oraciones_cloze(
-    origen: str = "anki", user_id: str = Depends(get_current_user)
+    origen: str = "anki",
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     try:
-        conn = sqlite3.connect("tutor.db")
-        conn.row_factory = sqlite3.Row
-        c = conn.cursor()
-        c.execute(
-            "SELECT id, ingles, espanol, chat_id, origen, palabra_oculta FROM oraciones_cloze WHERE user_id = ? AND origen = ?",
-            (user_id, origen),
+        stmt = select(OracionCloze).where(
+            OracionCloze.user_id == user_id,
+            OracionCloze.origen == origen,
         )
-        filas = c.fetchall()
-        conn.close()
+        filas = db.scalars(stmt).all()
 
         if not filas:
             return {"oraciones": []}
 
-        # Elegir hasta 10 oraciones al azar
-        cantidad = min(10, len(filas))
-        seleccionadas = random.sample(filas, cantidad)
-        oraciones = [dict(row) for row in seleccionadas]
-
+        oraciones = [f.to_dict() for f in filas]
         return {"oraciones": oraciones}
     except Exception as e:
         return {"error": f"Error obteniendo oraciones: {str(e)}"}
 
 
 @router.post("/generar_cloze")
-def generar_cloze_con_ia(user_id: str = Depends(get_current_user)):
+def generar_cloze_con_ia(
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     try:
-        conn = sqlite3.connect("tutor.db")
-        c = conn.cursor()
-        c.execute(
-            "SELECT rol, texto FROM mensajes WHERE user_id = ? ORDER BY id DESC LIMIT 20",
-            (user_id,),
+        # Obtener los últimos 20 mensajes del usuario
+        stmt_mensajes = text(
+            "SELECT rol, texto FROM mensajes WHERE user_id = :user_id ORDER BY id DESC LIMIT 20"
         )
-        historial_bd = reversed(c.fetchall())
+        mensajes_raw = db.execute(stmt_mensajes, {"user_id": user_id}).fetchall()
+        historial_bd = reversed(mensajes_raw)
 
         historial_texto = ""
         for rol, texto in historial_bd:
@@ -70,7 +59,7 @@ def generar_cloze_con_ia(user_id: str = Depends(get_current_user)):
             historial_texto += f"{quien}: {texto}\n\n"
 
         instrucciones = """
-        Eres un creador de ejercicios de inglés muy útil que genera oraciones para un minijuego 'Cloze' de rellenar huecos.
+        Eres un creador de ejercicios de inglés que genera oraciones para un minijuego 'Cloze' de rellenar huecos.
         Analiza este historial reciente de conversación del estudiante (delimitado por <historial>).
         Genera EXACTAMENTE 5 oraciones muy útiles en inglés basadas en sus errores o usando conectores o preposiciones comunes (in, on, at, to, for, with).
         REGLA 1: Devuelve ESTRICTAMENTE un arreglo JSON puro. Nada de markdown.
@@ -119,14 +108,18 @@ def generar_cloze_con_ia(user_id: str = Depends(get_current_user)):
             espanol = str(oracion.get("espanol", "")).strip()
             palabra_oculta = str(oracion.get("palabra_oculta", "")).strip()
             if ingles and espanol:
-                c.execute(
-                    "INSERT INTO oraciones_cloze (ingles, espanol, user_id, chat_id, origen, palabra_oculta) VALUES (?, ?, ?, ?, 'ia', ?)",
-                    (ingles, espanol, user_id, 0, palabra_oculta),
+                nueva_oracion = OracionCloze(
+                    ingles=ingles,
+                    espanol=espanol,
+                    user_id=user_id,
+                    chat_id=0,
+                    origen="ia",
+                    palabra_oculta=palabra_oculta,
                 )
+                db.add(nueva_oracion)
                 insertadas += 1
 
-        conn.commit()
-        conn.close()
+        db.commit()
 
         return {
             "mensaje": f"Se generaron e insertaron {insertadas} oraciones nuevas.",
@@ -134,22 +127,28 @@ def generar_cloze_con_ia(user_id: str = Depends(get_current_user)):
         }
 
     except Exception as e:
+        db.rollback()
         return {"error": f"Error al generar con IA: {str(e)}"}
 
 
 @router.delete("/cloze/{oracion_id}")
 async def eliminar_ejercicio_cloze(
-    oracion_id: int, user_id: str = Depends(get_current_user)
+    oracion_id: int,
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     try:
-        conn = sqlite3.connect("tutor.db")
-        c = conn.cursor()
-        c.execute(
-            "DELETE FROM oraciones_cloze WHERE id = ? AND user_id = ?",
-            (oracion_id, user_id),
+        stmt = select(OracionCloze).where(
+            OracionCloze.id == oracion_id,
+            OracionCloze.user_id == user_id,
         )
-        conn.commit()
-        conn.close()
+        ejercicio = db.scalars(stmt).first()
+        if not ejercicio:
+            return {"error": "Ejercicio no encontrado"}
+
+        db.delete(ejercicio)
+        db.commit()
         return {"exito": True, "mensaje": "Ejercicio eliminado"}
     except Exception as e:
+        db.rollback()
         return {"error": f"Error eliminando ejercicio: {str(e)}"}

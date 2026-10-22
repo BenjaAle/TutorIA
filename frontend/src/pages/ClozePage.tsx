@@ -354,7 +354,7 @@ function ClozeItemComponent({
                       }}
                       className="hover:text-fuchsia-500 transition-colors flex items-center gap-1 text-fuchsia-600 font-medium"
                     >
-                      <Brain className="size-3.5" /> A Anki
+                      <Brain className="size-3.5" /> Añadir a Anki
                     </button>
                   )}
                 </>

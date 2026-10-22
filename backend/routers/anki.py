@@ -471,11 +471,11 @@ async def inyectar_cartas(
         for oracion in cloze_inserts:
             try:
                 c.execute(
-                    "INSERT INTO oraciones_cloze (ingles, espanol, user_id, chat_id) VALUES (?, ?, ?, ?)",
+                    "INSERT INTO oraciones_cloze (ingles, espanol, user_id, chat_id, origen, palabra_oculta) VALUES (?, ?, ?, ?, ?, ?)",
                     oracion,
                 )
-            except:
-                pass
+            except Exception as e:
+                print(f"Error guardando oración cloze: {e}")
 
         conn.commit()
         conn.close()
@@ -726,11 +726,11 @@ async def exportar_apkg(
         for oracion in cloze_inserts:
             try:
                 c.execute(
-                    "INSERT INTO oraciones_cloze (ingles, espanol, user_id, chat_id) VALUES (?, ?, ?, ?)",
+                    "INSERT INTO oraciones_cloze (ingles, espanol, user_id, chat_id, origen, palabra_oculta) VALUES (?, ?, ?, ?, ?, ?)",
                     oracion,
                 )
-            except:
-                pass
+            except Exception as e:
+                print(f"Error guardando oración cloze: {e}")
 
         conn.commit()
         conn.close()
