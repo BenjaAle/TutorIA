@@ -149,4 +149,5 @@ app.include_router(historias.router)
 app.include_router(fonetica.router)
 app.include_router(vocabulario.router)
 app.include_router(ejercicios.router)
-app.include_router(speaking.router)
+app.include_router(speaking.router, prefix="/api/speaking") # prefijo a las rutas de speaking.py
+

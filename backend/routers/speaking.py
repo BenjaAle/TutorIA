@@ -13,7 +13,7 @@ from database import get_db
 from db_models import EvaluacionSpeaking
 from models import GenerarTemaRequest
 
-router = APIRouter(prefix="/speaking", tags=["Speaking"])
+router = APIRouter(tags=["Speaking"])
 
 SPEAKING_AUDIO_DIR = os.path.join("static", "audios", "speaking")
 os.makedirs(SPEAKING_AUDIO_DIR, exist_ok=True)

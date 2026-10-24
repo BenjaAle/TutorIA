@@ -1,11 +1,5 @@
-import asyncio
-from config import generar_audio, GEMINI_MODEL, client, get_current_user
-from models import EntrenamientoPares
-
 # pyrefly: ignore [missing-import]
-from fastapi import APIRouter, Depends
-import os
-import json
+from fastapi import APIRouter
 
 router = APIRouter()
 

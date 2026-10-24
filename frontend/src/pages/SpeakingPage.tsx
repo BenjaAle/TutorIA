@@ -154,7 +154,7 @@ export default function SpeakingPage() {
 
   const cargarTemas = async () => {
     try {
-      const res = await fetch("/speaking/temas");
+      const res = await fetch("/api/speaking/temas");
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       const data = await res.json();
       if (data.temas && data.temas.length > 0) {
@@ -176,7 +176,7 @@ export default function SpeakingPage() {
   const cargarHistorial = async () => {
     setLoadingHistorial(true);
     try {
-      const res = await fetch("/speaking/historial");
+      const res = await fetch("/api/speaking/historial");
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       const data = await res.json();
       setHistorial(data.historial || []);
@@ -191,7 +191,7 @@ export default function SpeakingPage() {
   const generarTemaConIA = async () => {
     setGenerandoTema(true);
     try {
-      const res = await fetch("/speaking/generar_tema", {
+      const res = await fetch("/api/speaking/generar_tema", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -368,7 +368,7 @@ export default function SpeakingPage() {
       formData.append("topic", topicText);
       formData.append("duracion_segundos", String(recordingSeconds));
 
-      const res = await fetch("/speaking/evaluar", {
+      const res = await fetch("/api/speaking/evaluar", {
         method: "POST",
         body: formData,
       });
@@ -397,7 +397,7 @@ export default function SpeakingPage() {
   const handleEliminarHistorial = async (id: number) => {
     if (!window.confirm("¿Seguro que deseas eliminar esta grabación de tu historial?")) return;
     try {
-      const res = await fetch(`/speaking/historial/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/speaking/historial/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (data.exito) {
         setHistorial((prev) => prev.filter((item) => item.id !== id));
@@ -523,7 +523,7 @@ export default function SpeakingPage() {
           <div className="min-w-0 flex-1 flex flex-col">
             <h2 className="truncate font-serif text-2xl font-bold md:text-3xl flex items-center gap-2">
               <Mic className="size-6 text-rose-500" />
-              Speaking & Pronunciación
+              Speaking
             </h2>
             <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
               Entrena tu fluidez verbal, pronunciación y vocabulario con retroalimentación instantánea de la IA estilo Stimuler.
@@ -971,7 +971,7 @@ export default function SpeakingPage() {
                       currentResult.fluency.filler_words.length > 0 && (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <span className="font-semibold text-rose-500">
-                            Muletillas (*filler words*) detectadas:
+                            Muletillas detectadas:
                           </span>
                           {currentResult.fluency.filler_words.map((w, idx) => (
                             <span

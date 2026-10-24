@@ -26,7 +26,6 @@ export default defineConfig({
       "/generar_historia": "http://127.0.0.1:8000",
       "/proponer_carta_unica": "http://127.0.0.1:8000",
       "/ejercicios": "http://127.0.0.1:8000",
-      "/speaking": "http://127.0.0.1:8000",
       // Los audios estáticos también se piden al backend
       "/static": "http://127.0.0.1:8000",
     },
