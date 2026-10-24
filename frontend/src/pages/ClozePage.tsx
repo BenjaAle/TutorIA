@@ -75,6 +75,7 @@ function getClozeDetails(
   }
 
   wordsToHide = wordsToHide.filter((w) => w.length > 0);
+  wordsToHide.sort((a, b) => b.length - a.length);
   if (wordsToHide.length === 0)
     return { tokens: [{ type: "text", val: frase }], answerMap: {} };
 
@@ -96,9 +97,38 @@ function getClozeDetails(
         val: frase.substring(lastIndex, match.index),
       });
     }
-    tokens.push({ type: "input", val: match[0], id: idCounter });
-    answerMap[idCounter] = match[0];
-    idCounter++;
+
+    const matchedPhrase = match[0];
+    if (/\s+/.test(matchedPhrase)) {
+      // Si la frase oculta contiene varias palabras, generamos una casilla individual por cada palabra
+      const parts = matchedPhrase.split(/(\s+)/);
+      for (const part of parts) {
+        if (!part) continue;
+        if (/^\s+$/.test(part)) {
+          tokens.push({ type: "text", val: part });
+        } else {
+          // Si la palabra tiene signos de puntuación adosados (ej: "word." o "word,")
+          const punctMatch = part.match(/^([\w'-]+)([^\w'-]*)$/);
+          if (punctMatch && punctMatch[2]) {
+            const wordOnly = punctMatch[1];
+            const punct = punctMatch[2];
+            tokens.push({ type: "input", val: wordOnly, id: idCounter });
+            answerMap[idCounter] = wordOnly;
+            idCounter++;
+            tokens.push({ type: "text", val: punct });
+          } else {
+            tokens.push({ type: "input", val: part, id: idCounter });
+            answerMap[idCounter] = part;
+            idCounter++;
+          }
+        }
+      }
+    } else {
+      tokens.push({ type: "input", val: matchedPhrase, id: idCounter });
+      answerMap[idCounter] = matchedPhrase;
+      idCounter++;
+    }
+
     lastIndex = regex.lastIndex;
   }
 
@@ -178,21 +208,54 @@ function ClozeItemComponent({
   };
 
   const handleHint = () => {
-    if (Object.keys(answerMap).length === 0) return;
-    const newInputs = { ...userInputs };
-    Object.keys(answerMap).forEach((key) => {
-      const id = Number(key);
-      const expected = answerMap[id];
-      const current = userInputs[id] || "";
-      if (current.toLowerCase().trim() !== expected.toLowerCase().trim()) {
-        if (current.length < expected.length) {
-          newInputs[id] = expected.substring(0, current.length + 1);
-        }
+    const allIds = Object.keys(answerMap)
+      .map(Number)
+      .sort((a, b) => a - b);
+    if (allIds.length === 0) return;
+
+    // Buscar de izquierda a derecha la primera casilla que no esté completa y correcta
+    let targetId: number | null = null;
+    let nextVal = "";
+
+    for (const id of allIds) {
+      const expected = answerMap[id] || "";
+      const current = (userInputs[id] || "").trim();
+
+      // Si ya está completamente correcta, pasa a la siguiente casilla
+      if (current.toLowerCase() === expected.toLowerCase()) {
+        continue;
       }
-    });
-    setUserInputs(newInputs);
-    setStatus("idle");
-    setWrongTokens([]);
+
+      // Calculamos cuántos caracteres consecutivos iniciales coinciden con la palabra esperada
+      let matchLen = 0;
+      while (
+        matchLen < current.length &&
+        matchLen < expected.length &&
+        current[matchLen].toLowerCase() === expected[matchLen].toLowerCase()
+      ) {
+        matchLen++;
+      }
+
+      // Si tenía letras incorrectas, matchLen descarta los errores.
+      // Si tenía letras correctas (o estaba vacía), revela una letra más de la palabra correcta.
+      const nextLen = Math.min(expected.length, matchLen + 1);
+      nextVal = expected.substring(0, nextLen);
+      targetId = id;
+      break;
+    }
+
+    if (targetId !== null) {
+      setUserInputs((prev) => ({ ...prev, [targetId!]: nextVal }));
+      setStatus("idle");
+      setWrongTokens((prev) => prev.filter((id) => id !== targetId));
+
+      setTimeout(() => {
+        const el = document.getElementById(
+          `cloze-input-${exercise.id}-${targetId}`
+        );
+        el?.focus();
+      }, 10);
+    }
   };
 
   const triggerSaveToAnki = () => {
@@ -209,6 +272,96 @@ function ClozeItemComponent({
 
     if (!palabrasSecretas) palabrasSecretas = "Palabras Clave";
     onSaveToAnki(frenteHTML, palabrasSecretas, exercise);
+  };
+
+  const handleInputChange = (id: number, val: string) => {
+    if (status !== "idle") setStatus("idle");
+
+    // Si el usuario escribe o pega texto con espacios, distribuir en casillas consecutivas
+    if (val.includes(" ")) {
+      const words = val.split(/\s+/).filter(Boolean);
+      if (words.length > 1) {
+        const allIds = Object.keys(answerMap).map(Number).sort((a, b) => a - b);
+        const currentIdx = allIds.indexOf(id);
+        const nextInputs = { ...userInputs };
+
+        words.forEach((w, offset) => {
+          const targetId = allIds[currentIdx + offset];
+          if (targetId !== undefined) {
+            nextInputs[targetId] = w;
+          }
+        });
+        setUserInputs(nextInputs);
+
+        setTimeout(() => {
+          const nextTargetId = allIds[currentIdx + words.length];
+          if (nextTargetId !== undefined) {
+            const el = document.getElementById(
+              `cloze-input-${exercise.id}-${nextTargetId}`
+            );
+            el?.focus();
+          }
+        }, 10);
+        return;
+      }
+    }
+
+    setUserInputs((prev) => ({ ...prev, [id]: val }));
+  };
+
+  const handleInputKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    id: number
+  ) => {
+    const allIds = Object.keys(answerMap).map(Number).sort((a, b) => a - b);
+    const currentIdx = allIds.indexOf(id);
+
+    if (e.key === " " || e.key === "Spacebar") {
+      // Avanzar a la siguiente casilla al presionar espacio si ya escribió la palabra
+      if ((userInputs[id] || "").trim().length > 0) {
+        e.preventDefault();
+        const nextId = allIds[currentIdx + 1];
+        if (nextId !== undefined) {
+          const nextEl = document.getElementById(
+            `cloze-input-${exercise.id}-${nextId}`
+          );
+          nextEl?.focus();
+        }
+      }
+    } else if (e.key === "Backspace") {
+      // Si la casilla está vacía y presiona retroceso, volver a la anterior
+      if (!userInputs[id] || userInputs[id].length === 0) {
+        const prevId = allIds[currentIdx - 1];
+        if (prevId !== undefined) {
+          const prevEl = document.getElementById(
+            `cloze-input-${exercise.id}-${prevId}`
+          );
+          prevEl?.focus();
+        }
+      }
+    } else if (e.key === "ArrowRight") {
+      const input = e.currentTarget;
+      if (input.selectionStart === input.value.length) {
+        const nextId = allIds[currentIdx + 1];
+        if (nextId !== undefined) {
+          const nextEl = document.getElementById(
+            `cloze-input-${exercise.id}-${nextId}`
+          );
+          nextEl?.focus();
+        }
+      }
+    } else if (e.key === "ArrowLeft") {
+      const input = e.currentTarget;
+      if (input.selectionStart === 0) {
+        const prevId = allIds[currentIdx - 1];
+        if (prevId !== undefined) {
+          const prevEl = document.getElementById(
+            `cloze-input-${exercise.id}-${prevId}`
+          );
+          prevEl?.focus();
+        }
+      }
+    }
   };
 
   return (
@@ -263,18 +416,17 @@ function ClozeItemComponent({
                 return (
                   <input
                     key={i}
+                    id={`cloze-input-${exercise.id}-${id}`}
                     aria-label={`Hueco del ejercicio`}
                     value={userInputs[id] || ""}
-                    onChange={(e) => {
-                      setUserInputs({ ...userInputs, [id]: e.target.value });
-                      if (status !== "idle") setStatus("idle");
-                    }}
+                    onChange={(e) => handleInputChange(id, e.target.value)}
+                    onKeyDown={(e) => handleInputKeyDown(e, id)}
                     readOnly={status === "correct"}
                     autoComplete="off"
                     autoCapitalize="off"
                     spellCheck={false}
                     style={{
-                      width: `${Math.max((answerMap[id] || "").length, 4) + 1}ch`,
+                      width: `${Math.max((answerMap[id] || "").length, 3) + 1}ch`,
                     }}
                     className={cn(
                       "border-b-2 bg-transparent px-1 mx-1 text-center font-sans font-medium outline-none transition-colors inline-block text-[0.9em]",
@@ -321,7 +473,7 @@ function ClozeItemComponent({
               {showHint ? "Ocultar traducción" : "Ver traducción"}
             </button>
 
-            {status === "idle" && (
+            {status !== "correct" && (
               <button
                 type="button"
                 onClick={handleHint}
