@@ -11,6 +11,7 @@ import {
   Trash2,
   ChevronRight,
   Loader2,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ModalAnki, { type CartaAnki } from "../components/ModalAnki";
@@ -120,6 +121,31 @@ export default function SpeakingPage() {
   // Anki Modal
   const [ankiModalOpen, setAnkiModalOpen] = useState(false);
   const [cartasAExportar, setCartasAExportar] = useState<CartaAnki[]>([]);
+  const [pendingAnkiKey, setPendingAnkiKey] = useState<string | null>(null);
+  const [addedAnkiKeys, setAddedAnkiKeys] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem("speaking_anki_added");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const markAsAdded = (key: string) => {
+    setAddedAnkiKeys((prev) => {
+      const updated = new Set(prev);
+      updated.add(key);
+      try {
+        localStorage.setItem(
+          "speaking_anki_added",
+          JSON.stringify([...updated]),
+        );
+      } catch (e) {
+        console.error("Error guardando en localStorage:", e);
+      }
+      return updated;
+    });
+  };
 
   // Cargar temas iniciales
   useEffect(() => {
@@ -381,20 +407,50 @@ export default function SpeakingPage() {
     }
   };
 
-  // Preparar carta para exportar a Anki
-  const handleGuardarEnAnki = (
-    palabra: string,
-    alternativa: string,
-    ejemplo: string,
-    explicacion: string
+  // Preparar carta de gramática para exportar a Anki
+  const handleGuardarGramaticaEnAnki = (
+    err: { original: string; correction: string; explanation: string },
+    key: string,
   ) => {
+    const cleanWordForImage = err.correction
+      .replace(/[^a-zA-Z\s]/g, "")
+      .trim()
+      .split(/\s+/)
+      .slice(0, 3)
+      .join(" ");
+
+    setPendingAnkiKey(key);
     setCartasAExportar([
       {
-        frente: alternativa,
-        reverso: `${palabra} (Alternativa avanzada: ${explicacion})`,
-        ejemplo_ingles: ejemplo,
+        frente: err.correction,
+        reverso: `❌ Error previo: "${err.original}"\n\n💡 Explicación: ${err.explanation}`,
+        ejemplo_ingles: err.correction,
+        ejemplo_espanol: err.explanation,
+        termino_imagen: cleanWordForImage || err.correction,
+        categoria: "Gramatica y Teoria",
+      },
+    ]);
+    setAnkiModalOpen(true);
+  };
+
+  // Preparar carta de vocabulario para exportar a Anki
+  const handleGuardarVocabularioEnAnki = (
+    sug: {
+      original_word: string;
+      better_alternative: string;
+      example_sentence: string;
+      explanation: string;
+    },
+    key: string,
+  ) => {
+    setPendingAnkiKey(key);
+    setCartasAExportar([
+      {
+        frente: sug.better_alternative,
+        reverso: `${sug.original_word} (Alternativa avanzada: ${sug.explanation})`,
+        ejemplo_ingles: sug.example_sentence,
         ejemplo_espanol: `Uso avanzado en contexto de speaking.`,
-        termino_imagen: alternativa,
+        termino_imagen: sug.better_alternative,
         categoria: "Expresiones Nativas",
       },
     ]);
@@ -772,7 +828,7 @@ export default function SpeakingPage() {
                           }}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-4 py-2 text-xs font-medium hover:bg-muted transition-colors"
                         >
-                          <RotateCcw className="size-3.5" /> Reintentar tema
+                          <RotateCcw className="size-3.5" /> Reintentar
                         </button>
                       </div>
                     </div>
@@ -970,39 +1026,76 @@ export default function SpeakingPage() {
                   {currentResult.grammar.errors &&
                     normalizeGrammarErrors(currentResult.grammar.errors).length > 0 && (
                       <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
-                        <h4 className="font-serif text-lg font-semibold flex items-center gap-2">
-                          <span className="text-purple-500">✍️</span> Correcciones Gramaticales
-                        </h4>
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-serif text-lg font-semibold flex items-center gap-2">
+                            <span className="text-purple-500">✍️</span> Correcciones Gramaticales
+                          </h4>
+                          <span className="text-xs text-muted-foreground">
+                            Añade estas reglas a tu mazo de Anki
+                          </span>
+                        </div>
                         <div className="space-y-3">
-                          {normalizeGrammarErrors(currentResult.grammar.errors).map((err, idx) => (
-                            <div
-                              key={idx}
-                              className="rounded-xl border border-border p-4 bg-muted/20 space-y-2"
-                            >
-                              {(err.original || err.correction) && (
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm">
-                                  {err.original && (
-                                    <span className="line-through text-destructive font-medium">
-                                      "{err.original}"
+                          {normalizeGrammarErrors(currentResult.grammar.errors).map((err, idx) => {
+                            const ankiKey = `grammar:${err.original}:${err.correction}`;
+                            const isAdded = addedAnkiKeys.has(ankiKey);
+
+                            return (
+                              <div
+                                key={idx}
+                                className="rounded-xl border border-border p-4 bg-muted/20 space-y-3"
+                              >
+                                {(err.original || err.correction) && (
+                                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm">
+                                    {err.original && (
+                                      <span className="line-through text-destructive font-medium">
+                                        "{err.original}"
+                                      </span>
+                                    )}
+                                    {err.original && err.correction && (
+                                      <ChevronRight className="size-4 text-muted-foreground hidden sm:block" />
+                                    )}
+                                    {err.correction && (
+                                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                                        "{err.correction}"
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                                {err.explanation && (
+                                  <p className="text-xs text-muted-foreground border-l-2 border-purple-500/40 pl-2.5">
+                                    {err.explanation}
+                                  </p>
+                                )}
+
+                                {/* Acción Añadir a Anki con indicador de estado */}
+                                <div className="flex items-center justify-between pt-2 border-t border-border/40">
+                                  {isAdded ? (
+                                    <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                                      <Check className="size-3.5" /> Ya añadido a Anki
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">
+                                      Aprende esta corrección
                                     </span>
                                   )}
-                                  {err.original && err.correction && (
-                                    <ChevronRight className="size-4 text-muted-foreground hidden sm:block" />
-                                  )}
-                                  {err.correction && (
-                                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                                      "{err.correction}"
-                                    </span>
-                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleGuardarGramaticaEnAnki(err, ankiKey)}
+                                    className={cn(
+                                      "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                                      isAdded
+                                        ? "border border-border bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted"
+                                        : "border border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20"
+                                    )}
+                                  >
+                                    <Brain className="size-3.5" />
+                                    {isAdded ? "Añadir de nuevo" : "Añadir a Anki"}
+                                  </button>
                                 </div>
-                              )}
-                              {err.explanation && (
-                                <p className="text-xs text-muted-foreground border-l-2 border-purple-500/40 pl-2.5">
-                                  {err.explanation}
-                                </p>
-                              )}
-                            </div>
-                          ))}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -1013,55 +1106,73 @@ export default function SpeakingPage() {
                       <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
                         <div className="flex items-center justify-between">
                           <h4 className="font-serif text-lg font-semibold flex items-center gap-2">
-                            <span className="text-amber-500">💡</span> Eleva tu Vocabulario (Alternativas Nativas)
+                            <span className="text-amber-500">💡</span> Eleva tu Vocabulario con Alternativas Nativas
                           </h4>
                           <span className="text-xs text-muted-foreground">
                             Añade estas frases a tu mazo de Anki
                           </span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {currentResult.vocabulary.suggestions.map((sug, idx) => (
-                            <div
-                              key={idx}
-                              className="rounded-xl border border-border p-4 bg-muted/20 flex flex-col justify-between space-y-3"
-                            >
-                              <div className="space-y-1.5">
-                                <div className="text-xs text-muted-foreground">
-                                  En vez de decir:{" "}
-                                  <span className="font-medium text-foreground">
-                                    "{sug.original_word}"
-                                  </span>
-                                </div>
-                                <div className="text-base font-semibold text-primary">
-                                  "{sug.better_alternative}"
-                                </div>
-                                <p className="text-xs text-muted-foreground italic">
-                                  Ej: {sug.example_sentence}
-                                </p>
-                                <p className="text-xs text-muted-foreground">{sug.explanation}</p>
-                              </div>
+                          {currentResult.vocabulary.suggestions.map((sug, idx) => {
+                            const ankiKey = `vocab:${sug.original_word}:${sug.better_alternative}`;
+                            const isAdded = addedAnkiKeys.has(ankiKey);
 
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleGuardarEnAnki(
-                                    sug.original_word,
-                                    sug.better_alternative,
-                                    sug.example_sentence,
-                                    sug.explanation
-                                  )
-                                }
-                                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-fuchsia-500/30 bg-fuchsia-500/10 px-3 py-1.5 text-xs font-semibold text-fuchsia-600 dark:text-fuchsia-400 hover:bg-fuchsia-500/20 transition-colors w-full"
+                            return (
+                              <div
+                                key={idx}
+                                className="rounded-xl border border-border p-4 bg-muted/20 flex flex-col justify-between space-y-3"
                               >
-                                <Brain className="size-3.5" /> Añadir a Anki
-                              </button>
-                            </div>
-                          ))}
+                                <div className="space-y-1.5">
+                                  <div className="text-xs text-muted-foreground">
+                                    En vez de decir:{" "}
+                                    <span className="font-medium text-foreground">
+                                      "{sug.original_word}"
+                                    </span>
+                                  </div>
+                                  <div className="text-base font-semibold text-primary">
+                                    "{sug.better_alternative}"
+                                  </div>
+                                  <p className="text-xs text-muted-foreground italic">
+                                    Ej: {sug.example_sentence}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">{sug.explanation}</p>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-2 border-t border-border/40">
+                                  {isAdded ? (
+                                    <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                                      <Check className="size-3.5" /> Ya añadido a Anki
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">
+                                      
+                                    </span>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleGuardarVocabularioEnAnki(sug, ankiKey)
+                                    }
+                                    className={cn(
+                                      "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                                      isAdded
+                                        ? "border border-border bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted"
+                                        : "border border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 hover:bg-fuchsia-500/20"
+                                    )}
+                                  >
+                                    <Brain className="size-3.5" />
+                                    {isAdded ? "Añadir de nuevo" : "Añadir a Anki"}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
 
-                  {/* "Así lo diría un nativo" (Native Reformulation) */}
+                  {/* Así lo diría un nativo */}  
                   {currentResult.native_reformulation && (
                     <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6 shadow-sm space-y-3">
                       <div className="flex items-center justify-between">
@@ -1215,11 +1326,18 @@ export default function SpeakingPage() {
         {ankiModalOpen && (
           <ModalAnki
             isOpen={ankiModalOpen}
-            onClose={() => setAnkiModalOpen(false)}
+            onClose={() => {
+              setAnkiModalOpen(false);
+              setPendingAnkiKey(null);
+            }}
             cartasIniciales={cartasAExportar}
             chatId={0}
             origen="speaking"
             onSuccess={() => {
+              if (pendingAnkiKey) {
+                markAsAdded(pendingAnkiKey);
+                setPendingAnkiKey(null);
+              }
               alert("¡Carta exportada a Anki exitosamente!");
               setAnkiModalOpen(false);
             }}
