@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input, Label, Select } from "@/components/field";
+import { Input, Label, Select, Textarea } from "@/components/field";
 
 export interface CartaAnki {
   frente: string;
@@ -272,10 +272,12 @@ export default function ModalAnki({
 
             <div>
               <Label htmlFor="anki-back">Reverso (Definición)</Label>
-              <Input
+              <Textarea
                 id="anki-back"
                 value={card?.reverso || ""}
                 onChange={(e) => handleFieldChange("reverso", e.target.value)}
+                className="min-h-[75px] resize-y leading-relaxed"
+                rows={3}
               />
             </div>
 

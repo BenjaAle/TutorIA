@@ -471,8 +471,8 @@ export default function SpeakingPage() {
       {
         frente: err.correction,
         reverso: `❌ Error previo: "${err.original}"\n\n💡 Explicación: ${err.explanation}`,
-        ejemplo_ingles: err.correction,
-        ejemplo_espanol: err.explanation,
+        ejemplo_ingles: "",
+        ejemplo_espanol: "",
         termino_imagen: cleanWordForImage || err.correction,
         categoria: "Gramatica y Teoria",
       },

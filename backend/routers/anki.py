@@ -34,6 +34,15 @@ from config import (
 router = APIRouter()
 
 
+def md_a_html(texto: str) -> str:
+    """Convierte formato básico markdown (**negrita**, *cursiva*, saltos de línea) a HTML para Anki."""
+    if not texto:
+        return ""
+    texto = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", texto)
+    texto = re.sub(r"\*(.*?)\*", r"<i>\1</i>", texto)
+    return texto.replace("\r\n", "<br>").replace("\n", "<br>")
+
+
 @router.post("/proponer_cartas")
 def proponer_cartas(req: ExtraerRequest, user_id: str = Depends(get_current_user)):
     conn = sqlite3.connect("tutor.db")
@@ -251,19 +260,6 @@ async def inyectar_cartas(
             nombre_limpio = "".join(
                 c if c.isalnum() else "_" for c in texto_frente[:15]
             )
-
-            def md_a_html(texto):
-                # Busca dos asteriscos \*\*.
-                # Luego, atrapa todo el texto que haya en el medio (.*?) y guárdalo en tu memoria.
-                # Finalmente, detente cuando veas otros dos asteriscos \*\*
-                # Pon una etiqueta HTML de inicio de negrita <b>.
-                # Luego, pon el texto exacto que atrapaste en tu memoria (\1 significa 'Grupo de captura 1').
-                # Por último, cierra la etiqueta </b>
-                texto = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", texto)
-                # lo mismo pero con un solo asterisco
-                texto = re.sub(r"\*(.*?)\*", r"<i>\1</i>", texto)
-                return texto
-
             # pasar campos de las cartas de markdown a HTML para que Anki los interprete correctamente
             texto_frente_html = md_a_html(texto_frente)
             texto_reverso_base_html = md_a_html(texto_reverso_base)
@@ -580,10 +576,6 @@ async def exportar_apkg(
                 c if c.isalnum() else "_" for c in texto_frente[:15]
             )
 
-            def md_a_html(texto):
-                texto = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", texto)
-                texto = re.sub(r"\*(.*?)\*", r"<i>\1</i>", texto)
-                return texto
 
             texto_frente_html = md_a_html(texto_frente)
             texto_reverso_base_html = md_a_html(texto_reverso_base)
