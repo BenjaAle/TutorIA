@@ -24,6 +24,7 @@ export interface CartaAnki {
   ejemplo_espanol: string;
   termino_imagen: string;
   categoria: string;
+  observacion?: string;
 }
 
 // 2. Propiedades que nuestro componente espera recibir
@@ -358,6 +359,23 @@ export default function ModalAnki({
                 })()}
               </div>
             </fieldset>
+
+            <div>
+              <Label htmlFor="anki-obs">
+                Observación / Notas de uso{" "}
+                <span className="font-normal border rounded px-1 text-[10px] ml-1 bg-muted">
+                  reverso
+                </span>
+              </Label>
+              <Textarea
+                id="anki-obs"
+                value={card?.observacion || ""}
+                placeholder="Matices de contexto, diferencias con palabras similares, o aclaraciones..."
+                onChange={(e) => handleFieldChange("observacion", e.target.value)}
+                className="min-h-[70px] resize-y leading-relaxed text-sm"
+                rows={2}
+              />
+            </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>

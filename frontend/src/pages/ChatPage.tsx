@@ -220,7 +220,7 @@ export default function ChatPage({ selectedChatId }: ChatPageProps) {
       if (data.error) {
         alert(data.error);
       } else if (!data.cartas || data.cartas.length === 0) {
-        alert("🤷‍♂️ Gemini no encontró vocabulario nuevo para extraer.");
+        alert("Gemini no encontró vocabulario nuevo para extraer.");
       } else {
         setCartasPropuestas(data.cartas);
         setIsModalOpen(true); // Abre el modal con las cartas

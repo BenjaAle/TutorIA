@@ -494,11 +494,12 @@ export default function SpeakingPage() {
     setCartasAExportar([
       {
         frente: sug.better_alternative,
-        reverso: `${sug.original_word} (Alternativa avanzada: ${sug.explanation})`,
+        reverso: sug.original_word,
         ejemplo_ingles: sug.example_sentence,
-        ejemplo_espanol: `Uso avanzado en contexto de speaking.`,
+        ejemplo_espanol: `Uso contextual en speaking.`,
         termino_imagen: sug.better_alternative,
         categoria: "Expresiones Nativas",
+        observacion: `Alternativa nativa más natural a "${sug.original_word}": ${sug.explanation}`,
       },
     ]);
     setAnkiModalOpen(true);
