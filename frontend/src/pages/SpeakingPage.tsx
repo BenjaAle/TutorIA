@@ -569,11 +569,11 @@ export default function SpeakingPage() {
         <header className="flex items-center gap-3 border-b border-border pl-16 pr-4 py-3 md:px-8 md:py-4 bg-background z-10 sticky top-0">
           <div className="min-w-0 flex-1 flex flex-col">
             <h2 className="truncate font-serif text-2xl font-bold md:text-3xl flex items-center gap-2">
-              <Mic className="size-6 text-rose-500" />
+              {/*<Mic className="size-6 text-rose-500" />*/}
               Speaking
             </h2>
             <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-              Entrena tu fluidez verbal, pronunciación y vocabulario con retroalimentación instantánea de la IA estilo Stimuler.
+              Entrena tu fluidez verbal, pronunciación y vocabulario con retroalimentación de la IA.
             </p>
           </div>
         </header>
@@ -598,8 +598,8 @@ export default function SpeakingPage() {
                   : "border-transparent text-muted-foreground hover:text-foreground"
               )}
             >
-              <Mic className="size-4 text-rose-500" />
-              Práctica en Vivo
+              <Mic className="size-4 text-black" />
+              Práctica
             </button>
             <button
               role="tab"
@@ -823,7 +823,7 @@ export default function SpeakingPage() {
                 </div>
               )}
 
-              {/* REPORTE DE RESULTADOS (ESTILO STIMULER) */}
+              {/* REPORTE DE RESULTADOS */}
               {currentResult && (
                 <div className="space-y-6">
                   {/* Tarjeta de Resumen / Hero Score */}

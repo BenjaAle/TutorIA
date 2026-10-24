@@ -17,8 +17,22 @@ export default defineConfig({
     proxy: {
       // Todo lo que empiece por /api, /chats, etc. va al backend
       "/api": "http://127.0.0.1:8000",
-      "/chats": "http://127.0.0.1:8000",
-      "/chat": "http://127.0.0.1:8000",
+      "/chats": {
+        target: "http://127.0.0.1:8000",
+        bypass: (req) => {
+          if (req.headers.accept?.includes("text/html")) {
+            return "/index.html";
+          }
+        },
+      },
+      "/chat": {
+        target: "http://127.0.0.1:8000",
+        bypass: (req) => {
+          if (req.headers.accept?.includes("text/html")) {
+            return "/index.html";
+          }
+        },
+      },
       "/crear_chat": "http://127.0.0.1:8000",
       "/proponer_cartas": "http://127.0.0.1:8000",
       "/inyectar_cartas": "http://127.0.0.1:8000",

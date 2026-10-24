@@ -74,6 +74,9 @@ export default function ChatPage({ selectedChatId }: ChatPageProps) {
     html = html.replace(/^## (.*$)/gim, "<h2>$1</h2>");
     html = html.replace(/^# (.*$)/gim, "<h1>$1</h1>");
 
+    // Transforma separadores horizontales (--- o ***) en una línea divisoria <hr />
+    html = html.replace(/^(?:---|___|\*\*\*)\s*$/gm, '<hr class="my-4 border-t border-border" />');
+
     // (^|\n) captura el inicio de una linea o un salto de linea
     // \s*[\*-]\s+ captura un asterisco o guion rodeado de espacios
     // $1 es el grupo capturado por (^|\n)

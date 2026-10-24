@@ -42,14 +42,14 @@ export default function HomePage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <Link
                 to="/speaking"
-                className="group flex flex-col gap-2 rounded-xl border border-rose-500/30 bg-rose-500/5 p-4 transition-colors hover:border-rose-500/60 hover:bg-rose-500/10 sm:col-span-2"
+                className="group flex flex-col gap-2 rounded-xl border border-border p-4 transition-colors hover:border-primary/50 hover:bg-primary/5 sm:col-span-2"
               >
                 <div className="flex items-center gap-2">
                   <Mic className="size-6 text-rose-500 group-hover:scale-110 transition-transform" />
-                  <span className="font-medium text-rose-600 dark:text-rose-400">Práctica de Speaking</span>
+                  <span className="font-medium">Práctica de Speaking</span>
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  Entrena fluidez, ritmo, pronunciación y vocabulario con retroalimentación en tiempo real estilo Stimuler.
+                  Entrena fluidez, ritmo, pronunciación y vocabulario con retroalimentación de la IA.
                 </span>
               </Link>
               <Link
