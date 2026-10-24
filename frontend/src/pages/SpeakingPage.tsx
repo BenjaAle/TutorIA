@@ -131,7 +131,7 @@ export default function SpeakingPage() {
     }
   });
 
-  const markAsAdded = (key: string) => {
+  const markAsAdded = async (key: string) => {
     setAddedAnkiKeys((prev) => {
       const updated = new Set(prev);
       updated.add(key);
@@ -145,12 +145,59 @@ export default function SpeakingPage() {
       }
       return updated;
     });
+
+    // Guardar en la base de datos para sincronizar con el móvil u otros navegadores
+    try {
+      await fetch("/api/speaking/anki_items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key }),
+      });
+    } catch (e) {
+      console.error("Error sincronizando tarjeta de Anki con la BD:", e);
+    }
   };
 
-  // Cargar temas iniciales
+  // Cargar temas iniciales y sincronizar tarjetas añadidas de Anki desde la BD
   useEffect(() => {
     cargarTemas();
+    cargarAnkiItems();
   }, []);
+
+  const cargarAnkiItems = async () => {
+    try {
+      const res = await fetch("/api/speaking/anki_items");
+      if (res.ok) {
+        const data = await res.json();
+        const serverKeys: string[] = Array.isArray(data.keys) ? data.keys : [];
+
+        setAddedAnkiKeys((prev) => {
+          const merged = new Set([...prev, ...serverKeys]);
+
+          // Si el navegador local tenía claves previas que el servidor aún no tiene,
+          // sincronizarlas a la BD para que los demás dispositivos las tengan
+          const serverKeySet = new Set(serverKeys);
+          const pendingSync = [...prev].filter((k) => !serverKeySet.has(k));
+          if (pendingSync.length > 0) {
+            pendingSync.forEach((k) => {
+              fetch("/api/speaking/anki_items", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ key: k }),
+              }).catch(() => {});
+            });
+          }
+
+          try {
+            localStorage.setItem("speaking_anki_added", JSON.stringify([...merged]));
+          } catch {}
+          return merged;
+        });
+      }
+    } catch (e) {
+      console.error("Error cargando tarjetas de Anki desde la BD:", e);
+    }
+  };
 
   const cargarTemas = async () => {
     try {

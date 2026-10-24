@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 
 from config import GEMINI_MODEL, client, get_current_user
 from database import get_db
-from db_models import EvaluacionSpeaking
-from models import GenerarTemaRequest
+from db_models import EvaluacionSpeaking, SpeakingAnkiItem
+from models import GenerarTemaRequest, SpeakingAnkiItemRequest
 
 router = APIRouter(tags=["Speaking"])
 
@@ -430,3 +430,63 @@ def eliminar_evaluacion_speaking(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error eliminando evaluación: {str(e)}",
         )
+
+
+@router.get("/anki_items")
+def obtener_anki_items(
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Obtiene las claves de correcciones y vocabulario ya añadidas a Anki por el usuario."""
+    try:
+        stmt = select(SpeakingAnkiItem.item_key).where(
+            SpeakingAnkiItem.user_id == user_id
+        )
+        keys = db.scalars(stmt).all()
+        return {"keys": list(keys)}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error obteniendo tarjetas de Anki: {str(e)}",
+        )
+
+
+@router.post("/anki_items")
+def registrar_anki_item(
+    payload: SpeakingAnkiItemRequest,
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Registra una clave de corrección o vocabulario como añadida a Anki."""
+    try:
+        key = payload.key.strip()
+        if not key:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La clave no puede estar vacía",
+            )
+
+        stmt = select(SpeakingAnkiItem).where(
+            SpeakingAnkiItem.user_id == user_id,
+            SpeakingAnkiItem.item_key == key,
+        )
+        existente = db.scalar(stmt)
+        if not existente:
+            nuevo = SpeakingAnkiItem(
+                user_id=user_id,
+                item_key=key,
+                fecha=datetime.now().strftime("%Y-%m-%d %H:%M"),
+            )
+            db.add(nuevo)
+            db.commit()
+
+        return {"exito": True, "key": key}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error registrando tarjeta de Anki: {str(e)}",
+        )
+

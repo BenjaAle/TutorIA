@@ -116,6 +116,16 @@ def iniciar_bd():
                  detalles_json TEXT DEFAULT '{}')"""
     )
 
+    # Tabla para guardar items de speaking exportados a Anki
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS speaking_anki_items (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                 user_id TEXT NOT NULL, 
+                 item_key TEXT NOT NULL, 
+                 fecha TEXT,
+                 UNIQUE(user_id, item_key))"""
+    )
+
     conn.commit()
     conn.close()
 

@@ -41,4 +41,9 @@ class EntrenamientoPares(BaseModel):
 
 class GenerarTemaRequest(BaseModel):
     nivel: str = "B2"
-    intereses: str = ""
+    intereses: str = ""
+
+
+class SpeakingAnkiItemRequest(BaseModel):
+    key: str
+

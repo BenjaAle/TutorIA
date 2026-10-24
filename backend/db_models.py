@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, String, Text, Float
+from sqlalchemy import Integer, String, Text, Float, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from database import Base
 import json
@@ -58,5 +58,25 @@ class EvaluacionSpeaking(Base):
             "nivel_cefr": self.nivel_cefr,
             "transcripcion": self.transcripcion,
             "detalles": detalles,
+        }
+
+
+class SpeakingAnkiItem(Base):
+    __tablename__ = "speaking_anki_items"
+    __table_args__ = (
+        UniqueConstraint("user_id", "item_key", name="uq_user_item_key"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    item_key: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    fecha: Mapped[str] = mapped_column(String, nullable=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "item_key": self.item_key,
+            "fecha": self.fecha,
         }
 
