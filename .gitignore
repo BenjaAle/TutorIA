@@ -35,5 +35,6 @@ backend/static/audios/
 # Antiguos
 antiguo/
 
-# Scripts locales
+# Cosas mias
 iniciar.bat
+prompts.md

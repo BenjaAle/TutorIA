@@ -34,6 +34,9 @@ Aplicación web impulsada por IA (Google Gemini) diseñada para el aprendizaje d
     <img src="./docs/screenshots/fonetica.png" alt="Fonética" width="100%" />
   </p>
 
+- 🎙️ **Speaking:** Grabación y evaluación de speaking mediante Gemini. Métricas de fluidez (WPM, pausas, muletillas), análisis fonético de pronunciación, corrección gramatical y sugerencias de vocabulario.
+
+
 - 🧩 **Ejercicios Cloze:** Relleno de espacios en blanco basados en flashcards generadas por el sistema o por IA, con validación visual y entrega de pistas.
 
   <p align="center">

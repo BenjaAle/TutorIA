@@ -14,6 +14,7 @@ import HistoriasPage from "./pages/HistoriasPage.tsx";
 import FoneticaPage from "./pages/FoneticaPage.tsx";
 import ClozePage from "./pages/ClozePage.tsx";
 import HomePage from "./pages/HomePage.tsx";
+import SpeakingPage from "./pages/SpeakingPage.tsx";
 import { Loader2 } from "lucide-react";
 
 // Variable que pasa al navegador y guarda el id del ultimo chat seleccionado
@@ -178,6 +179,14 @@ function App() {
           element={
             <MainLayout>
               <ClozePage />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/speaking"
+          element={
+            <MainLayout>
+              <SpeakingPage />
             </MainLayout>
           }
         />

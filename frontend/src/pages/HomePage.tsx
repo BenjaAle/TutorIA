@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { MessageSquare, BookOpen, Speech, TextCursorInput } from "lucide-react";
+import { MessageSquare, BookOpen, Speech, TextCursorInput, Mic } from "lucide-react";
 
 export default function HomePage() {
   return (
@@ -11,7 +11,7 @@ export default function HomePage() {
             Distintas modalidades de estudio
           </h1>
           <p className="mt-5 max-w-md leading-relaxed text-muted-foreground text-pretty">
-            Conversa, escucha historias, entrena con ejercicios y practica tu
+            Conversa, escucha historias, entrena con ejercicios, practica tu speaking y
             pronunciación. Elige tu ritmo y la IA se encarga del resto.
           </p>
           <dl className="mt-10 grid max-w-sm grid-cols-3 gap-4 border-t border-border pt-6 text-sm">
@@ -40,6 +40,18 @@ export default function HomePage() {
               ¿Con qué quieres aprender hoy?
             </h3>
             <div className="grid gap-4 sm:grid-cols-2">
+              <Link
+                to="/speaking"
+                className="group flex flex-col gap-2 rounded-xl border border-rose-500/30 bg-rose-500/5 p-4 transition-colors hover:border-rose-500/60 hover:bg-rose-500/10 sm:col-span-2"
+              >
+                <div className="flex items-center gap-2">
+                  <Mic className="size-6 text-rose-500 group-hover:scale-110 transition-transform" />
+                  <span className="font-medium text-rose-600 dark:text-rose-400">Práctica de Speaking</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  Entrena fluidez, ritmo, pronunciación y vocabulario con retroalimentación en tiempo real estilo Stimuler.
+                </span>
+              </Link>
               <Link
                 to="/chats"
                 className="group flex flex-col gap-2 rounded-xl border border-border p-4 transition-colors hover:border-primary/50 hover:bg-primary/5"
@@ -84,6 +96,7 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
     </main>
   );
 }

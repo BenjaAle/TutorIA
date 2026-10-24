@@ -15,6 +15,7 @@ import {
   LogOut,
   Sun,
   Moon,
+  Mic,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { auth } from "../firebase";
@@ -40,6 +41,7 @@ export const sections = [
   { href: "/historias", label: "Historias", icon: BookOpen },
   { href: "/cloze", label: "Cloze", icon: TextCursorInput },
   { href: "/fonetica", label: "Fonética", icon: Speech },
+  { href: "/speaking", label: "Speaking", icon: Mic },
 ];
 
 export default function Sidebar({

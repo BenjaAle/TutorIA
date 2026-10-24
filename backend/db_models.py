@@ -1,6 +1,7 @@
-from sqlalchemy import Integer, String, Text
+from sqlalchemy import Integer, String, Text, Float
 from sqlalchemy.orm import Mapped, mapped_column
 from database import Base
+import json
 
 
 class OracionCloze(Base):
@@ -25,3 +26,37 @@ class OracionCloze(Base):
             "origen": self.origen,
             "palabra_oculta": self.palabra_oculta,
         }
+
+
+class EvaluacionSpeaking(Base):
+    __tablename__ = "evaluaciones_speaking"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    fecha: Mapped[str] = mapped_column(String, nullable=True)
+    topic: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    duracion_segundos: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    ruta_audio: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    overall_score: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    nivel_cefr: Mapped[str] = mapped_column(String, nullable=False, default="")
+    transcripcion: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    detalles_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+
+    def to_dict(self) -> dict:
+        try:
+            detalles = json.loads(self.detalles_json)
+        except Exception:
+            detalles = {}
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "fecha": self.fecha,
+            "topic": self.topic,
+            "duracion_segundos": self.duracion_segundos,
+            "ruta_audio": self.ruta_audio,
+            "overall_score": self.overall_score,
+            "nivel_cefr": self.nivel_cefr,
+            "transcripcion": self.transcripcion,
+            "detalles": detalles,
+        }
+

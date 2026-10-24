@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles  # Para que la web lea estaticos js 
 
 # pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
-from routers import chats, anki, historias, fonetica, vocabulario, ejercicios
+from routers import chats, anki, historias, fonetica, vocabulario, ejercicios, speaking
 
 # Inicializar Firebase Admin
 cred = credentials.Certificate("credenciales_firebase.json")
@@ -101,12 +101,27 @@ def iniciar_bd():
                  palabra_oculta TEXT DEFAULT '')"""
     )
 
+    # Tabla para guardar evaluaciones de speaking
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS evaluaciones_speaking (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                 user_id TEXT, 
+                 fecha TEXT, 
+                 topic TEXT, 
+                 duracion_segundos REAL DEFAULT 0.0, 
+                 ruta_audio TEXT, 
+                 overall_score INTEGER DEFAULT 0, 
+                 nivel_cefr TEXT DEFAULT '', 
+                 transcripcion TEXT DEFAULT '', 
+                 detalles_json TEXT DEFAULT '{}')"""
+    )
 
     conn.commit()
     conn.close()
 
-    # Crear carpeta para guardar los audios de las historias si no existe
+    # Crear carpeta para guardar los audios si no existen
     os.makedirs("static/audios", exist_ok=True)
+    os.makedirs("static/audios/speaking", exist_ok=True)
 
 
 iniciar_bd()
@@ -134,3 +149,4 @@ app.include_router(historias.router)
 app.include_router(fonetica.router)
 app.include_router(vocabulario.router)
 app.include_router(ejercicios.router)
+app.include_router(speaking.router)
