@@ -400,23 +400,31 @@ async def inyectar_cartas(
                     else:
                         texto_reverso_final += f"<br><br>{oracion_en_html}{audio_tag}"
 
-                    # Guardar la oración base en memoria para ejercicios cloze
-                    try:
-                        sql_oracion_es = (
-                            oraciones_es[j] if j < len(oraciones_es) else ""
-                        )
-                        cloze_inserts.append(
-                            (
-                                oracion_en_limpia,
-                                sql_oracion_es,
-                                user_id,
-                                req.chat_id,
-                                "anki",
-                                palabra_oculta,
+                    # Guardar la oración base en memoria para ejercicios cloze (evaluación por ejemplo)
+                    ejemplos_cloze = carta.get("ejemplos_cloze", [])
+                    incluir_este_ejemplo = False
+                    if isinstance(ejemplos_cloze, list) and j < len(ejemplos_cloze):
+                        incluir_este_ejemplo = bool(ejemplos_cloze[j])
+                    elif "incluir_cloze" in carta:
+                        incluir_este_ejemplo = bool(carta.get("incluir_cloze", False))
+
+                    if incluir_este_ejemplo:
+                        try:
+                            sql_oracion_es = (
+                                oraciones_es[j] if j < len(oraciones_es) else ""
                             )
-                        )
-                    except Exception as e:
-                        print(f"Error insertando cloze: {e}")
+                            cloze_inserts.append(
+                                (
+                                    oracion_en_limpia,
+                                    sql_oracion_es,
+                                    user_id,
+                                    req.chat_id,
+                                    "anki",
+                                    palabra_oculta,
+                                )
+                            )
+                        except Exception as e:
+                            print(f"Error insertando cloze: {e}")
 
             # 4. AÑADIR OBSERVACIÓN / NOTA DE USO AL REVERSO (si existe)
             texto_observacion = str(carta.get("observacion", "")).strip()
@@ -671,23 +679,31 @@ async def exportar_apkg(
                     else:
                         texto_reverso_final += f"<br><br>{oracion_en_html}{audio_tag}"
 
-                    # Guardar la oración en la DB para ejercicios cloze
-                    try:
-                        sql_oracion_es = (
-                            oraciones_es[j] if j < len(oraciones_es) else ""
-                        )
-                        cloze_inserts.append(
-                            (
-                                oracion_en_limpia,
-                                sql_oracion_es,
-                                user_id,
-                                req.chat_id,
-                                "anki",
-                                palabra_oculta,
+                    # Guardar la oración en la DB para ejercicios cloze (evaluación por ejemplo)
+                    ejemplos_cloze = carta.get("ejemplos_cloze", [])
+                    incluir_este_ejemplo = False
+                    if isinstance(ejemplos_cloze, list) and j < len(ejemplos_cloze):
+                        incluir_este_ejemplo = bool(ejemplos_cloze[j])
+                    elif "incluir_cloze" in carta:
+                        incluir_este_ejemplo = bool(carta.get("incluir_cloze", False))
+
+                    if incluir_este_ejemplo:
+                        try:
+                            sql_oracion_es = (
+                                oraciones_es[j] if j < len(oraciones_es) else ""
                             )
-                        )
-                    except Exception as e:
-                        print(f"Error insertando cloze: {e}")
+                            cloze_inserts.append(
+                                (
+                                    oracion_en_limpia,
+                                    sql_oracion_es,
+                                    user_id,
+                                    req.chat_id,
+                                    "anki",
+                                    palabra_oculta,
+                                )
+                            )
+                        except Exception as e:
+                            print(f"Error insertando cloze: {e}")
 
             texto_observacion = str(carta.get("observacion", "")).strip()
             if texto_observacion:

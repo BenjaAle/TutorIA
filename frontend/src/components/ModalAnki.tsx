@@ -3,6 +3,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Puzzle,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,8 @@ export interface CartaAnki {
   termino_imagen: string;
   categoria: string;
   observacion?: string;
+  incluir_cloze?: boolean;
+  ejemplos_cloze?: boolean[];
 }
 
 // 2. Propiedades que nuestro componente espera recibir
@@ -64,12 +67,18 @@ export default function ModalAnki({
 
   // Cuando se abre el modal o cambian las cartas iniciales, cargamos esas cartas al estado
   useEffect(() => {
-    setCartas(cartasIniciales);
+    setCartas(
+      cartasIniciales.map((c) => ({
+        ...c,
+        incluir_cloze: c.incluir_cloze ?? false,
+        ejemplos_cloze: c.ejemplos_cloze ?? [],
+      })),
+    );
     setCurrentIndex(0);
     setSent(false);
   }, [cartasIniciales, isOpen]);
 
-  const handleFieldChange = (campo: keyof CartaAnki, valor: string) => {
+  const handleFieldChange = (campo: keyof CartaAnki, valor: any) => {
     setCartas((prev) =>
       prev.map((carta, i) =>
         i === currentIndex ? { ...carta, [campo]: valor } : carta,
@@ -91,6 +100,17 @@ export default function ModalAnki({
     const newExamplesArray = [...examples];
     newExamplesArray[exampleIndex] = value;
     handleFieldChange(lang, newExamplesArray.join(" | "));
+  };
+
+  const handleExampleClozeToggle = (exampleIndex: number, valor: boolean) => {
+    const card = cartas[currentIndex];
+    if (!card) return;
+    const currentCloze = [...(card.ejemplos_cloze || [])];
+    while (currentCloze.length <= exampleIndex) {
+      currentCloze.push(false);
+    }
+    currentCloze[exampleIndex] = valor;
+    handleFieldChange("ejemplos_cloze", currentCloze);
   };
 
   const handleAddExample = () => {
@@ -354,6 +374,22 @@ export default function ModalAnki({
                         }
                         className="bg-muted/30 text-muted-foreground h-8 shadow-none border-dashed border-t-0 focus-visible:border-solid focus-visible:border-t"
                       />
+                      <div className="col-span-2 flex items-center justify-end pt-1">
+                        <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground hover:text-foreground select-none">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(card?.ejemplos_cloze?.[i])}
+                            onChange={(e) =>
+                              handleExampleClozeToggle(i, e.target.checked)
+                            }
+                            className="size-3.5 rounded border-border text-primary accent-primary cursor-pointer"
+                          />
+                          <Puzzle className="size-3 text-primary" />
+                          <span className="text-[11px] font-medium">
+                            Añadir este ejemplo a Cloze
+                          </span>
+                        </label>
+                      </div>
                     </div>
                   ));
                 })()}
