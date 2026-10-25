@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input, Label, Select, Textarea } from "@/components/field";
+import { cn } from "@/lib/utils";
 
 export interface CartaAnki {
   frente: string;
@@ -28,7 +29,59 @@ export interface CartaAnki {
   observacion?: string;
   incluir_cloze?: boolean;
   ejemplos_cloze?: boolean[];
+  nivel_cefr?: "A1" | "A2" | "B1" | "B2" | "C1" | "C2" | string;
 }
+
+export const NIVELES_CEFR = [
+  {
+    id: "A1",
+    label: "A1",
+    desc: "Esencial",
+    color: "text-emerald-700 dark:text-emerald-300",
+    bg: "bg-emerald-500/10 dark:bg-emerald-500/20",
+    border: "border-emerald-500/30",
+  },
+  {
+    id: "A2",
+    label: "A2",
+    desc: "Básico",
+    color: "text-teal-700 dark:text-teal-300",
+    bg: "bg-teal-500/10 dark:bg-teal-500/20",
+    border: "border-teal-500/30",
+  },
+  {
+    id: "B1",
+    label: "B1",
+    desc: "Intermedio",
+    color: "text-blue-700 dark:text-blue-300",
+    bg: "bg-blue-500/10 dark:bg-blue-500/20",
+    border: "border-blue-500/30",
+  },
+  {
+    id: "B2",
+    label: "B2",
+    desc: "Intermedio Alto",
+    color: "text-purple-700 dark:text-purple-300",
+    bg: "bg-purple-500/10 dark:bg-purple-500/20",
+    border: "border-purple-500/30",
+  },
+  {
+    id: "C1",
+    label: "C1",
+    desc: "Avanzado",
+    color: "text-amber-700 dark:text-amber-300",
+    bg: "bg-amber-500/10 dark:bg-amber-500/20",
+    border: "border-amber-500/30",
+  },
+  {
+    id: "C2",
+    label: "C2",
+    desc: "Raro / Maestría",
+    color: "text-rose-700 dark:text-rose-300",
+    bg: "bg-rose-500/10 dark:bg-rose-500/20",
+    border: "border-rose-500/30",
+  },
+];
 
 // 2. Propiedades que nuestro componente espera recibir
 interface ModalAnkiProps {
@@ -70,8 +123,12 @@ export default function ModalAnki({
     setCartas(
       cartasIniciales.map((c) => ({
         ...c,
+        reverso: (c.reverso || "").replace(/<br\s*\/?>/gi, "\n"),
+        observacion: (c.observacion || "").replace(/<br\s*\/?>/gi, "\n"),
+        ejemplo_espanol: (c.ejemplo_espanol || "").replace(/\[|\]/g, ""),
         incluir_cloze: c.incluir_cloze ?? false,
         ejemplos_cloze: c.ejemplos_cloze ?? [],
+        nivel_cefr: c.nivel_cefr || "B1",
       })),
     );
     setCurrentIndex(0);
@@ -231,14 +288,95 @@ export default function ModalAnki({
           <div className="border-b border-border bg-muted/30 p-6 md:border-b-0 md:border-r relative flex flex-col">
             <div className="mb-4 flex items-center justify-between">
               <span className="text-xs font-medium text-muted-foreground">
-                Vista previa ficticia
+                Vista previa de la carta
               </span>
+              {(() => {
+                const cefr =
+                  NIVELES_CEFR.find((n) => n.id === (card?.nivel_cefr || "B1")) ||
+                  NIVELES_CEFR[2];
+                return (
+                  <span
+                    className={cn(
+                      "text-[11px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 shadow-2xs",
+                      cefr.bg,
+                      cefr.color,
+                      cefr.border,
+                    )}
+                  >
+                    Nivel {cefr.label} • {cefr.desc}
+                  </span>
+                );
+              })()}
             </div>
 
-            <div className="flex-1 flex aspect-[4/5] items-center justify-center rounded-md border border-dashed border-border bg-card p-6 text-center shadow-sm">
-              <p className="font-serif text-xl font-semibold text-muted-foreground">
-                (El frente y reverso irían aquí)
-              </p>
+            <div className="flex-1 flex flex-col rounded-xl border border-border bg-card p-5 text-center shadow-sm overflow-y-auto max-h-[460px] justify-between">
+              <div className="space-y-4">
+                {/* Frente */}
+                <div className="py-2 border-b border-border/60">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block mb-1">
+                    Frente
+                  </span>
+                  <p className="font-serif text-2xl font-bold text-foreground">
+                    {card?.frente || "Concepto"}
+                  </p>
+                </div>
+
+                {/* Reverso */}
+                <div className="py-2">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block mb-1">
+                    Reverso
+                  </span>
+                  <p className="font-sans text-sm font-semibold text-foreground/90 leading-relaxed whitespace-pre-wrap">
+                    {card?.reverso?.replace(/<br\s*\/?>/gi, "\n") || "Definición"}
+                  </p>
+                </div>
+
+                {/* Ejemplos si existen */}
+                {(() => {
+                  const enList = (card?.ejemplo_ingles || "")
+                    .split("|")
+                    .map((s) => s.trim())
+                    .filter(Boolean);
+                  const esList = (card?.ejemplo_espanol || "")
+                    .split("|")
+                    .map((s) => s.trim());
+
+                  if (enList.length === 0) return null;
+
+                  return (
+                    <div className="space-y-2 text-left">
+                      {enList.map((en, idx) => (
+                        <div
+                          key={idx}
+                          className="text-xs bg-muted/30 p-2.5 rounded-md border border-border/50 space-y-1"
+                        >
+                          <p className="font-serif text-foreground italic">
+                            "{en.replace(/\[|\]/g, "").trim()}"
+                          </p>
+                          {esList[idx] && (
+                            <p className="text-muted-foreground font-sans">
+                              {esList[idx].replace(/\[|\]/g, "")}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {/* Nota de uso si existe */}
+                {card?.observacion && (
+                  <div className="text-left text-[11px] border-l-2 border-primary/50 bg-primary/5 p-2 rounded-r text-muted-foreground">
+                    <span className="font-semibold text-foreground">💡 Nota de uso: </span>
+                    {card.observacion}
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 mt-4 border-t border-border/40 text-[10px] text-muted-foreground flex justify-between items-center">
+                <span>Categoría: {card?.categoria || "Vocabulario"}</span>
+                <span>Mazo: TutorIA</span>
+              </div>
             </div>
 
             {/* Navigador de Cartas */}
@@ -413,7 +551,7 @@ export default function ModalAnki({
               />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-3">
               <div>
                 <Label htmlFor="anki-pexels">Imagen Pexels</Label>
                 <Input
@@ -436,6 +574,22 @@ export default function ModalAnki({
                   {CATEGORIAS_VALIDAS.map((c) => (
                     <option key={c} value={c}>
                       {c}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="anki-cefr">Nivel</Label>
+                <Select
+                  id="anki-cefr"
+                  value={card?.nivel_cefr || "B1"}
+                  onChange={(e) =>
+                    handleFieldChange("nivel_cefr", e.target.value)
+                  }
+                >
+                  {NIVELES_CEFR.map((n) => (
+                    <option key={n.id} value={n.id}>
+                      {n.id}
                     </option>
                   ))}
                 </Select>
