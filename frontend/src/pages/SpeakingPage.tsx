@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import {
   Mic,
   Square,
+  Pause,
+  Play,
   RotateCcw,
   Sparkles,
   Volume2,
@@ -96,12 +98,14 @@ export default function SpeakingPage() {
 
   // Grabación
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [recordedAudioBlob, setRecordedAudioBlob] = useState<Blob | null>(null);
   const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerIntervalRef = useRef<any>(null);
+  const isCancelledRef = useRef(false);
 
   // Audio Context & Analyser para visualizador en tiempo real
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -146,7 +150,7 @@ export default function SpeakingPage() {
       return updated;
     });
 
-    // Guardar en la base de datos para sincronizar con el móvil u otros navegadores
+    // Guardar en la BDD para sincronizar
     try {
       await fetch("/api/speaking/anki_items", {
         method: "POST",
@@ -264,7 +268,9 @@ export default function SpeakingPage() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
+      isCancelledRef.current = false;
       setRecordingSeconds(0);
+      setIsPaused(false);
       setRecordedAudioBlob(null);
       setRecordedAudioUrl(null);
       setCurrentResult(null);
@@ -302,23 +308,28 @@ export default function SpeakingPage() {
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-        setRecordedAudioBlob(audioBlob);
-        const url = URL.createObjectURL(audioBlob);
-        setRecordedAudioUrl(url);
-
         // Detener microfono
         stream.getTracks().forEach((track) => track.stop());
 
         // Limpiar visualizador
         if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-        if (audioContextRef.current) audioContextRef.current.close();
+        if (audioContextRef.current) audioContextRef.current.close().catch(() => {});
+
+        // Si fue cancelado expresamente, no procesar el audio
+        if (isCancelledRef.current) return;
+
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        setRecordedAudioBlob(audioBlob);
+        const url = URL.createObjectURL(audioBlob);
+        setRecordedAudioUrl(url);
       };
 
       mediaRecorder.start(200); // chunk cada 200ms
       setIsRecording(true);
+      setIsPaused(false);
 
       // Iniciar temporizador
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = setInterval(() => {
         setRecordingSeconds((prev) => prev + 1);
       }, 1000);
@@ -328,19 +339,62 @@ export default function SpeakingPage() {
     }
   };
 
+  const pausarGrabacion = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      try {
+        mediaRecorderRef.current.pause();
+        setIsPaused(true);
+        if (timerIntervalRef.current) {
+          clearInterval(timerIntervalRef.current);
+          timerIntervalRef.current = null;
+        }
+      } catch (err) {
+        console.error("Error al pausar la grabación:", err);
+      }
+    }
+  };
+
+  const reanudarGrabacion = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
+      try {
+        mediaRecorderRef.current.resume();
+        setIsPaused(false);
+        if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = setInterval(() => {
+          setRecordingSeconds((prev) => prev + 1);
+        }, 1000);
+      } catch (err) {
+        console.error("Error al reanudar la grabación:", err);
+      }
+    }
+  };
+
   const detenerGrabacion = () => {
-    if (mediaRecorderRef.current && isRecording) {
+    if (
+      mediaRecorderRef.current &&
+      (mediaRecorderRef.current.state === "recording" || mediaRecorderRef.current.state === "paused")
+    ) {
+      isCancelledRef.current = false;
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      setIsPaused(false);
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
     }
   };
 
   const cancelarGrabacion = () => {
-    if (mediaRecorderRef.current && isRecording) {
+    isCancelledRef.current = true;
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    }
+    setIsRecording(false);
+    setIsPaused(false);
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
     }
     setRecordedAudioBlob(null);
     setRecordedAudioUrl(null);
@@ -361,6 +415,13 @@ export default function SpeakingPage() {
 
     const renderFrame = () => {
       animFrameRef.current = requestAnimationFrame(renderFrame);
+
+      // Si está en pausa, limpiamos el visualizador para dar retroalimentación tranquila
+      if (mediaRecorderRef.current?.state === "paused") {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        return;
+      }
+
       analyser.getByteFrequencyData(dataArray);
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -737,31 +798,86 @@ export default function SpeakingPage() {
                   )}
 
                   <div className="z-10 flex flex-col items-center gap-4 max-w-md w-full">
-                    {/* Botón Central de Micrófono */}
+                    {/* Controles de Grabación */}
                     {!recordedAudioUrl ? (
-                      <div className="relative">
-                        {isRecording && (
-                          <div className="absolute -inset-3 rounded-full bg-rose-500/20 animate-ping pointer-events-none" />
-                        )}
-                        <button
-                          type="button"
-                          onClick={isRecording ? detenerGrabacion : iniciarGrabacion}
-                          disabled={evaluando}
-                          className={cn(
-                            "relative size-20 rounded-full flex items-center justify-center transition-all duration-300 shadow-md",
-                            isRecording
-                              ? "bg-rose-500 text-white scale-105 shadow-rose-500/40 shadow-lg"
-                              : "bg-primary text-primary-foreground hover:scale-105 hover:shadow-primary/30"
-                          )}
-                          title={isRecording ? "Detener grabación" : "Comenzar a hablar"}
-                        >
-                          {isRecording ? (
-                            <Square className="size-8 fill-current" />
-                          ) : (
+                      !isRecording ? (
+                        /* Estado 1: Botón Central para Iniciar Grabación */
+                        <div className="flex flex-col items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={iniciarGrabacion}
+                            disabled={evaluando}
+                            className="relative size-20 rounded-full flex items-center justify-center transition-all duration-300 shadow-md bg-primary text-primary-foreground hover:scale-105 hover:shadow-primary/30"
+                            title="Comenzar a hablar"
+                          >
                             <Mic className="size-9" />
-                          )}
-                        </button>
-                      </div>
+                          </button>
+                          <span className="text-xs font-medium text-muted-foreground">Toca para hablar</span>
+                        </div>
+                      ) : (
+                        /* Estado 2: Grabando / En Pausa con Controles: Descartar, Detener y Pausar/Reanudar */
+                        <div className="flex items-center justify-center gap-6">
+                          {/* Botón Descartar */}
+                          <div className="flex flex-col items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={cancelarGrabacion}
+                              title="Descartar grabación"
+                              className="size-12 rounded-full border border-border bg-muted/60 text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 flex items-center justify-center transition-all shadow-sm"
+                            >
+                              <RotateCcw className="size-5" />
+                            </button>
+                            <span className="text-[11px] font-medium text-muted-foreground">Descartar</span>
+                          </div>
+
+                          {/* Botón Finalizar / Terminar */}
+                          <div className="flex flex-col items-center gap-1.5">
+                            <div className="relative">
+                              {!isPaused && (
+                                <div className="absolute -inset-3 rounded-full bg-rose-500/20 animate-ping pointer-events-none" />
+                              )}
+                              <button
+                                type="button"
+                                onClick={detenerGrabacion}
+                                title="Terminar y guardar grabación"
+                                className="relative size-20 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg bg-rose-500 text-white hover:bg-rose-600 hover:scale-105 shadow-rose-500/40"
+                              >
+                                <Square className="size-7 fill-current" />
+                              </button>
+                            </div>
+                            <span className="text-[11px] font-medium text-rose-600 dark:text-rose-400">Terminar</span>
+                          </div>
+
+                          {/* Botón Pausar / Reanudar */}
+                          <div className="flex flex-col items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={isPaused ? reanudarGrabacion : pausarGrabacion}
+                              title={isPaused ? "Reanudar grabación" : "Pausar grabación"}
+                              className={cn(
+                                "size-12 rounded-full border flex items-center justify-center transition-all shadow-sm",
+                                isPaused
+                                  ? "border-amber-500/60 bg-amber-500/15 text-amber-600 dark:text-amber-400 hover:bg-amber-500/25 animate-pulse scale-105"
+                                  : "border-border bg-muted/60 text-foreground hover:bg-muted hover:text-amber-600 dark:hover:text-amber-400"
+                              )}
+                            >
+                              {isPaused ? (
+                                <Play className="size-5 fill-current ml-0.5 text-amber-600 dark:text-amber-400" />
+                              ) : (
+                                <Pause className="size-5 fill-current" />
+                              )}
+                            </button>
+                            <span
+                              className={cn(
+                                "text-[11px] font-medium",
+                                isPaused ? "text-amber-600 dark:text-amber-400 font-semibold" : "text-muted-foreground"
+                              )}
+                            >
+                              {isPaused ? "Reanudar" : "Pausar"}
+                            </span>
+                          </div>
+                        </div>
+                      )
                     ) : (
                       /* Reproductor previo al envío */
                       <div className="w-full rounded-xl border border-border bg-muted/30 p-4 space-y-3">
@@ -783,13 +899,30 @@ export default function SpeakingPage() {
                     )}
 
                     {/* Estado y Cronómetro */}
-                    <div className="space-y-1">
-                      <p className="font-mono text-2xl font-bold tracking-wider text-foreground">
-                        {formatTime(recordingSeconds)}
-                      </p>
+                    <div className="space-y-1.5 flex flex-col items-center">
+                      <div className="flex items-center gap-2.5">
+                        <p className="font-mono text-2xl font-bold tracking-wider text-foreground">
+                          {formatTime(recordingSeconds)}
+                        </p>
+                        {isRecording && (
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold tracking-wide",
+                              isPaused
+                                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                                : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 animate-pulse"
+                            )}
+                          >
+                            <span className={cn("size-2 rounded-full", isPaused ? "bg-amber-500" : "bg-rose-500")} />
+                            {isPaused ? "EN PAUSA" : "GRABANDO"}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground">
                         {isRecording
-                          ? "Grabando tu voz... Habla con naturalidad y claridad."
+                          ? isPaused
+                            ? "Grabación en pausa. Haz clic en Reanudar cuando quieras continuar."
+                            : "Grabando tu voz... Habla con naturalidad y claridad."
                           : recordedAudioUrl
                           ? "Escucha tu grabación o envíala para análisis."
                           : "Haz clic en el micrófono cuando estés listo para comenzar."}
@@ -1078,9 +1211,11 @@ export default function SpeakingPage() {
                           <h4 className="font-serif text-lg font-semibold flex items-center gap-2">
                             <span className="text-purple-500">✍️</span> Correcciones Gramaticales
                           </h4>
+                    {/*
                           <span className="text-xs text-muted-foreground">
                             Añade estas reglas a tu mazo de Anki
                           </span>
+                    */}
                         </div>
                         <div className="space-y-3">
                           {normalizeGrammarErrors(currentResult.grammar.errors).map((err, idx) => {
@@ -1156,9 +1291,11 @@ export default function SpeakingPage() {
                           <h4 className="font-serif text-lg font-semibold flex items-center gap-2">
                             <span className="text-amber-500">💡</span> Eleva tu Vocabulario con Alternativas Nativas
                           </h4>
+                          {/*
                           <span className="text-xs text-muted-foreground">
                             Añade estas frases a tu mazo de Anki
                           </span>
+                          */}
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           {currentResult.vocabulary.suggestions.map((sug, idx) => {
