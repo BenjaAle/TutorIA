@@ -114,6 +114,7 @@ export default function SpeakingPage() {
   const [generandoShadowingIA, setGenerandoShadowingIA] = useState(false);
   const [shadowingNivel, setShadowingNivel] = useState("B1");
   const [shadowingCategoria, setShadowingCategoria] = useState("Casual & Conversación");
+  const [totalDescartadas, setTotalDescartadas] = useState(0);
 
   // Temas
   const [temas, setTemas] = useState<TemaSpeaking[]>([]);
@@ -282,6 +283,7 @@ export default function SpeakingPage() {
       if (!res.ok) throw new Error("Error cargando frases");
       const data = await res.json();
       setFrasesShadowing(data.frases || []);
+      setTotalDescartadas(data.total_descartadas || 0);
       setCurrentShadowingIndex(0);
     } catch (e) {
       console.error("Error cargando frases estudiadas:", e);
@@ -330,18 +332,62 @@ export default function SpeakingPage() {
     }
   };
 
-  const handleEliminarFraseIA = async (id: string | number) => {
-    if (!window.confirm("¿Seguro que deseas eliminar esta frase de tu biblioteca?")) return;
+  const handleEliminarFrase = async (id: string | number) => {
+    if (shadowingSource === "ia") {
+      if (!window.confirm("¿Seguro que deseas eliminar esta frase generada con IA?")) return;
+      try {
+        const res = await fetch(`/api/speaking/shadowing/frases_ia/${id}`, {
+          method: "DELETE",
+        });
+        if (res.ok) {
+          setFrasesShadowing((prev) => prev.filter((f) => f.id !== id));
+          setCurrentShadowingIndex((prev) => Math.max(0, Math.min(prev, frasesShadowing.length - 2)));
+        }
+      } catch (e) {
+        console.error("Error eliminando frase IA:", e);
+      }
+    } else {
+      if (
+        !window.confirm(
+          "¿Deseas descartar esta frase de tus sesiones de shadowing? (Tu historia original permanecerá 100% intacta)"
+        )
+      ) {
+        return;
+      }
+      try {
+        const res = await fetch("/api/speaking/shadowing/descartar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ item_id: String(id) }),
+        });
+        if (res.ok) {
+          setFrasesShadowing((prev) => prev.filter((f) => f.id !== id));
+          setTotalDescartadas((prev) => prev + 1);
+          setCurrentShadowingIndex((prev) => Math.max(0, Math.min(prev, frasesShadowing.length - 2)));
+        }
+      } catch (e) {
+        console.error("Error descartando frase estudiada:", e);
+      }
+    }
+  };
+
+  const handleRestablecerDescartadas = async () => {
+    if (
+      !window.confirm(
+        "¿Deseas volver a incluir todas las frases que habías descartado de tus historias y cartas?"
+      )
+    ) {
+      return;
+    }
     try {
-      const res = await fetch(`/api/speaking/shadowing/frases_ia/${id}`, {
-        method: "DELETE",
+      const res = await fetch("/api/speaking/shadowing/restablecer_descartadas", {
+        method: "POST",
       });
       if (res.ok) {
-        setFrasesShadowing((prev) => prev.filter((f) => f.id !== id));
-        setCurrentShadowingIndex((prev) => Math.max(0, prev - 1));
+        await cargarFrasesShadowingEstudiadas();
       }
     } catch (e) {
-      console.error("Error eliminando frase:", e);
+      console.error("Error restableciendo frases descartadas:", e);
     }
   };
 
@@ -1597,11 +1643,25 @@ export default function SpeakingPage() {
                   </button>
                 </div>
 
-                <span className="text-xs text-muted-foreground">
-                  {shadowingSource === "estudiadas"
-                    ? "Frases tomadas de tus lecturas y tarjetas"
-                    : "Sesiones guiadas con audio neural creadas por Gemini"}
-                </span>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {shadowingSource === "estudiadas" && totalDescartadas > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleRestablecerDescartadas}
+                      className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors border border-border/70 rounded-lg px-2.5 py-1 bg-muted/30 hover:bg-muted"
+                      title="Recuperar frases que habías descartado de tus historias y cartas"
+                    >
+                      <RotateCcw className="size-3 text-primary" />
+                      <span>Restablecer ({totalDescartadas}) descartadas</span>
+                    </button>
+                  )}
+
+                  <span className="text-xs text-muted-foreground">
+                    {shadowingSource === "estudiadas"
+                      ? "Frases tomadas de tus lecturas y tarjetas"
+                      : "Sesiones guiadas con audio neural creadas por Gemini"}
+                  </span>
+                </div>
               </div>
 
               {/* Panel de configuración si el origen es IA */}
@@ -1691,39 +1751,56 @@ export default function SpeakingPage() {
                   <div className="space-y-1">
                     <h3 className="font-serif text-xl font-medium text-foreground">
                       {shadowingSource === "estudiadas"
-                        ? "Aún no tienes oraciones de historias"
+                        ? totalDescartadas > 0
+                          ? "Has descartado todas las oraciones estudiadas"
+                          : "Aún no tienes oraciones de historias"
                         : "Genera tu primer set de Shadowing"}
                     </h3>
                     <p className="text-sm text-muted-foreground max-w-md mx-auto">
                       {shadowingSource === "estudiadas"
-                        ? "Genera una historia en la sección 'Historias' para practicar sus líneas, o utiliza el 'Generador con IA' para empezar a practicar ahora."
+                        ? totalDescartadas > 0
+                          ? `Tienes ${totalDescartadas} frases que fueron ocultadas de shadowing. Puedes restablecerlas cuando quieras o generar más historias.`
+                          : "Genera una historia en la sección 'Historias' para practicar sus líneas, o utiliza el 'Generador con IA' para empezar a practicar ahora."
                         : "Haz clic en 'Generar 5 Frases' para que Gemini cree un set con audio neural y notas de entonación."}
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (shadowingSource === "estudiadas") {
-                        handleSwitchShadowingSource("ia");
-                      } else {
-                        generarFrasesShadowingConIA();
-                      }
-                    }}
-                    disabled={generandoShadowingIA}
-                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity shadow-sm"
-                  >
-                    {generandoShadowingIA ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="size-4 text-amber-300" />
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    {shadowingSource === "estudiadas" && totalDescartadas > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleRestablecerDescartadas}
+                        className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-muted transition-all shadow-sm"
+                      >
+                        <RotateCcw className="size-4 text-primary" />
+                        <span>Restablecer {totalDescartadas} descartadas</span>
+                      </button>
                     )}
-                    <span>
-                      {shadowingSource === "estudiadas"
-                        ? "Probar Generador con IA"
-                        : "Generar 5 Frases Ahora"}
-                    </span>
-                  </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (shadowingSource === "estudiadas") {
+                          handleSwitchShadowingSource("ia");
+                        } else {
+                          generarFrasesShadowingConIA();
+                        }
+                      }}
+                      disabled={generandoShadowingIA}
+                      className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity shadow-sm"
+                    >
+                      {generandoShadowingIA ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="size-4 text-amber-300" />
+                      )}
+                      <span>
+                        {shadowingSource === "estudiadas"
+                          ? "Probar Generador con IA"
+                          : "Generar 5 Frases Ahora"}
+                      </span>
+                    </button>
+                  </div>
                 </div>
               ) : (
                 /* Tarjeta de Shadowing Activa */
@@ -1742,7 +1819,12 @@ export default function SpeakingPage() {
                     }
                     puedeAvanzar={currentShadowingIndex < frasesShadowing.length - 1}
                     puedeRetroceder={currentShadowingIndex > 0}
-                    onEliminar={shadowingSource === "ia" ? handleEliminarFraseIA : undefined}
+                    onEliminar={handleEliminarFrase}
+                    eliminarTooltip={
+                      shadowingSource === "ia"
+                        ? "Eliminar frase generada con IA"
+                        : "Descartar de shadowing (tu historia original queda intacta)"
+                    }
                     onScoreActualizado={handleScoreActualizado}
                   />
 

@@ -117,3 +117,24 @@ class FraseShadowingDB(Base):
         }
 
 
+class ShadowingDescartado(Base):
+    __tablename__ = "shadowing_descartados"
+    __table_args__ = (
+        UniqueConstraint("user_id", "item_id", name="uq_user_shadowing_descartado"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    item_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    fecha: Mapped[str] = mapped_column(String, nullable=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "item_id": self.item_id,
+            "fecha": self.fecha,
+        }
+
+
+

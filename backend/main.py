@@ -142,6 +142,16 @@ def iniciar_bd():
                  fecha TEXT)"""
     )
 
+    # Tabla para registrar frases de historias o cloze descartadas por el usuario en Shadowing
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS shadowing_descartados (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                 user_id TEXT NOT NULL, 
+                 item_id TEXT NOT NULL, 
+                 fecha TEXT,
+                 UNIQUE(user_id, item_id))"""
+    )
+
     conn.commit()
     conn.close()
 

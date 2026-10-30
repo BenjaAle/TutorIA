@@ -58,6 +58,7 @@ interface ShadowingCardProps {
   puedeAvanzar?: boolean;
   puedeRetroceder?: boolean;
   onEliminar?: (id: string | number) => void;
+  eliminarTooltip?: string;
   onScoreActualizado?: (id: string | number, nuevoScore: number) => void;
 }
 
@@ -70,6 +71,7 @@ export default function ShadowingCard({
   puedeAvanzar = false,
   puedeRetroceder = false,
   onEliminar,
+  eliminarTooltip,
   onScoreActualizado,
 }: ShadowingCardProps) {
   // Estado de Audio Modelo
@@ -374,7 +376,7 @@ export default function ShadowingCard({
               type="button"
               onClick={() => onEliminar(frase.id)}
               className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors ml-1"
-              title="Eliminar frase de mi biblioteca"
+              title={eliminarTooltip || "Eliminar frase de mi biblioteca"}
             >
               <Trash2 className="size-3.5" />
             </button>

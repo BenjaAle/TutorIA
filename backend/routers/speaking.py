@@ -9,13 +9,20 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from google.genai import types
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from config import GEMINI_MODEL, client, generar_audio, get_current_user
 from database import get_db
-from db_models import EvaluacionSpeaking, OracionCloze, SpeakingAnkiItem, FraseShadowingDB
+from db_models import (
+    EvaluacionSpeaking,
+    OracionCloze,
+    SpeakingAnkiItem,
+    FraseShadowingDB,
+    ShadowingDescartado,
+)
 from models import (
+    DescartarShadowingRequest,
     GenerarFrasesShadowingRequest,
     GenerarTemaRequest,
     SintetizarFraseRequest,
@@ -678,11 +685,18 @@ def obtener_frases_estudiadas(
     """
     Obtiene frases reales para hacer shadowing tomadas de las historias generadas
     por el usuario (lineas_historia) o de sus cartas de Anki / oraciones Cloze.
+    Filtra automáticamente cualquier frase que el usuario haya descartado previamente.
     """
     try:
+        # Obtener IDs de frases descartadas por el usuario
+        stmt_descartados = select(ShadowingDescartado.item_id).where(
+            ShadowingDescartado.user_id == user_id
+        )
+        descartados = set(db.scalars(stmt_descartados).all())
+
         frases = []
 
-        # 1. Frases de historias del usuario
+        # 1. Frases de historias del usuario (filtrando descartadas a nivel de SQL)
         conn = sqlite3.connect("tutor.db")
         c = conn.cursor()
         c.execute(
@@ -693,15 +707,20 @@ def obtener_frases_estudiadas(
             WHERE (h.user_id = ? OR h.user_id = 'migrado')
               AND lh.ruta_audio IS NOT NULL
               AND lh.ruta_audio != ''
+              AND ('hist_' || lh.id) NOT IN (
+                  SELECT item_id FROM shadowing_descartados WHERE user_id = ?
+              )
             ORDER BY RANDOM()
-            LIMIT 30
+            LIMIT 50
             """,
-            (user_id,),
+            (user_id, user_id),
         )
         filas = c.fetchall()
         conn.close()
 
         for f in filas:
+            item_id = f"hist_{f[0]}"
+
             ruta_audio = str(f[4] or "").strip()
             if ruta_audio and not ruta_audio.startswith("/"):
                 ruta_audio = f"/{ruta_audio}"
@@ -711,7 +730,7 @@ def obtener_frases_estudiadas(
             if os.path.exists(ruta_fisica):
                 frases.append(
                     {
-                        "id": f"hist_{f[0]}",
+                        "id": item_id,
                         "en": f[1],
                         "es": f[2],
                         "ipa": f[3] or "",
@@ -726,13 +745,16 @@ def obtener_frases_estudiadas(
             stmt = (
                 select(OracionCloze)
                 .where(OracionCloze.user_id == user_id)
-                .limit(10)
+                .limit(50)
             )
             clozes = db.scalars(stmt).all()
             for cz in clozes:
+                item_id = f"cloze_{cz.id}"
+                if item_id in descartados:
+                    continue
                 frases.append(
                     {
-                        "id": f"cloze_{cz.id}",
+                        "id": item_id,
                         "en": cz.ingles,
                         "es": cz.espanol,
                         "ipa": "",
@@ -742,11 +764,78 @@ def obtener_frases_estudiadas(
                     }
                 )
 
-        return {"frases": frases}
+        return {"frases": frases, "total_descartadas": len(descartados)}
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error obteniendo frases estudiadas: {str(e)}",
+        )
+
+
+@router.post("/shadowing/descartar")
+def descartar_frase_shadowing(
+    payload: DescartarShadowingRequest,
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Marca una frase de historia o cloze como descartada para shadowing de forma no destructiva.
+    La historia y la carta cloze original permanecen 100% intactas.
+    """
+    try:
+        item_id = payload.item_id.strip()
+        if not item_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="item_id no puede estar vacío",
+            )
+
+        stmt = select(ShadowingDescartado).where(
+            ShadowingDescartado.user_id == user_id,
+            ShadowingDescartado.item_id == item_id,
+        )
+        existente = db.scalar(stmt)
+        if not existente:
+            nuevo = ShadowingDescartado(
+                user_id=user_id,
+                item_id=item_id,
+                fecha=datetime.now().strftime("%Y-%m-%d %H:%M"),
+            )
+            db.add(nuevo)
+            db.commit()
+
+        return {"exito": True, "item_id": item_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error descartando frase: {str(e)}",
+        )
+
+
+@router.post("/shadowing/restablecer_descartadas")
+def restablecer_frases_descartadas(
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Restablece todas las frases descartadas por el usuario,
+    volviéndolas a incluir en sus sesiones de Shadowing.
+    """
+    try:
+        stmt = delete(ShadowingDescartado).where(
+            ShadowingDescartado.user_id == user_id
+        )
+        resultado = db.execute(stmt)
+        db.commit()
+        return {"exito": True, "restablecidas": resultado.rowcount}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error restableciendo frases descartadas: {str(e)}",
         )
 
 

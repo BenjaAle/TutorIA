@@ -55,3 +55,8 @@ class GenerarFrasesShadowingRequest(BaseModel):
 
 class SintetizarFraseRequest(BaseModel):
     texto: str
+
+
+class DescartarShadowingRequest(BaseModel):
+    item_id: str
+
