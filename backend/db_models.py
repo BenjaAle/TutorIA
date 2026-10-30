@@ -47,6 +47,10 @@ class EvaluacionSpeaking(Base):
             detalles = json.loads(self.detalles_json)
         except Exception:
             detalles = {}
+        if isinstance(detalles, dict):
+            detalles["ruta_audio"] = self.ruta_audio
+            detalles["duracion_segundos"] = self.duracion_segundos
+            detalles["topic"] = self.topic
         return {
             "id": self.id,
             "user_id": self.user_id,

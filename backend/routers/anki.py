@@ -35,7 +35,7 @@ router = APIRouter()
 
 
 def md_a_html(texto: str) -> str:
-    """Convierte formato básico markdown (**negrita**, *cursiva*, saltos de línea) a HTML para Anki."""
+    """Convierte formato markdown (**negrita**, *cursiva*, saltos de línea) a HTML para Anki."""
     if not texto:
         return ""
     texto = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", texto)
@@ -78,7 +78,7 @@ def generar_badge_cefr(nivel: str) -> str:
             "border": "#fed7aa",
         },
         "C2": {
-            "desc": "C2 • Raro / Maestría",
+            "desc": "C2 • Nativo",
             "bg": "#ffe4e6",
             "color": "#be123c",
             "border": "#fecdd3",

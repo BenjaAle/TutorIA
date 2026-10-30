@@ -342,6 +342,10 @@ async def evaluar_speaking(
         overall_score = int(detalles.get("overall_score", 70))
         cefr_level = str(detalles.get("cefr_level", "B1"))
 
+        detalles["ruta_audio"] = ruta_relativa_audio
+        detalles["duracion_segundos"] = round(duracion_segundos, 1)
+        detalles["topic"] = topic
+
         # Guardamos el audio y la respuesta de gemini en la base de datos
         nueva_evaluacion = EvaluacionSpeaking(
             user_id=user_id,

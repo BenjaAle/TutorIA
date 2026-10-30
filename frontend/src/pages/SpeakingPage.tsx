@@ -32,6 +32,9 @@ interface EvaluacionDetalles {
   transcription: string;
   overall_score: number;
   cefr_level: string;
+  ruta_audio?: string;
+  duracion_segundos?: number;
+  topic?: string;
   fluency: {
     score: number;
     estimated_wpm?: number;
@@ -488,7 +491,17 @@ export default function SpeakingPage() {
 
       const data = await res.json();
       if (data.evaluacion && data.evaluacion.detalles) {
-        setCurrentResult(data.evaluacion.detalles);
+        const audioUrl = data.evaluacion.ruta_audio || recordedAudioUrl;
+        const duracion = Math.round(data.evaluacion.duracion_segundos || recordingSeconds);
+        setCurrentResult({
+          ...data.evaluacion.detalles,
+          ruta_audio: audioUrl,
+          duracion_segundos: duracion,
+          topic: topicText,
+        });
+        if (data.evaluacion.ruta_audio) {
+          setRecordedAudioUrl(data.evaluacion.ruta_audio);
+        }
       }
     } catch (e: any) {
       console.error(e);
@@ -985,8 +998,17 @@ export default function SpeakingPage() {
                               Nivel: {currentResult.cefr_level}
                             </span>
                             <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Clock className="size-3" /> {recordingSeconds} seg grabados
+                              <Clock className="size-3" />{" "}
+                              {currentResult.duracion_segundos ?? recordingSeconds} seg grabados
                             </span>
+                            {currentResult.topic && (
+                              <span
+                                className="text-xs text-muted-foreground max-w-[220px] truncate hidden sm:inline"
+                                title={currentResult.topic}
+                              >
+                                • {currentResult.topic}
+                              </span>
+                            )}
                           </div>
                           <h3 className="font-serif text-2xl font-semibold mt-1">
                             {currentResult.overall_score >= 80
@@ -1135,12 +1157,16 @@ export default function SpeakingPage() {
 
                   {/* Transcripción y Audio */}
                   <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <h4 className="font-serif text-lg font-semibold flex items-center gap-2">
                         <span>Transcripción de tu voz</span>
                       </h4>
-                      {recordedAudioUrl && (
-                        <audio src={recordedAudioUrl} controls className="h-8 max-w-[240px]" />
+                      {(recordedAudioUrl || currentResult.ruta_audio) && (
+                        <audio
+                          src={recordedAudioUrl || currentResult.ruta_audio}
+                          controls
+                          className="h-8 w-full sm:max-w-[260px]"
+                        />
                       )}
                     </div>
                     <div className="rounded-xl border border-border/80 bg-muted/30 p-4 font-serif text-base leading-relaxed text-foreground italic">
@@ -1490,7 +1516,16 @@ export default function SpeakingPage() {
                           <button
                             type="button"
                             onClick={() => {
-                              setCurrentResult(item.detalles);
+                              const audioUrl = item.ruta_audio || item.detalles?.ruta_audio || null;
+                              const duracion = Math.round(item.duracion_segundos || item.detalles?.duracion_segundos || 0);
+                              setCurrentResult({
+                                ...item.detalles,
+                                ruta_audio: audioUrl || undefined,
+                                duracion_segundos: duracion,
+                                topic: item.topic,
+                              });
+                              setRecordedAudioUrl(audioUrl);
+                              setRecordingSeconds(duracion);
                               setActiveTab("practica");
                             }}
                             className="text-primary hover:underline font-medium flex items-center gap-1"
