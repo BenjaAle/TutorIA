@@ -16,10 +16,19 @@ import {
   MoreVertical,
   Volume2,
   ArrowLeft,
+  Mic,
 } from "lucide-react";
 import ModalAnki, { type CartaAnki } from "../components/ModalAnki";
 import KindleSelection from "../components/KindleSelection";
+import ShadowingCard from "../components/ShadowingCard";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/field";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +41,8 @@ interface HistoriaPreview {
 
 // Cada linea tiene el texto en ingles, su fonetica, su traduccion y el audio
 interface LineaHistoria {
+  id?: number;
+  orden?: number;
   en: string;
   ipa: string;
   es: string;
@@ -75,6 +86,7 @@ export default function HistoriasPage() {
   const [indiceAudio, setIndiceAudio] = useState(-1);
   const [velocidad, setVelocidad] = useState(1.5);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [shadowingIndex, setShadowingIndex] = useState<number | null>(null);
 
   // Vocab State
   const [palabrasEnAnki, setPalabrasEnAnki] = useState<string[]>([]);
@@ -254,6 +266,15 @@ export default function HistoriasPage() {
         setIsPlaying(false);
       }
     }
+  };
+
+  const abrirShadowing = (index: number) => {
+    if (index < 0 || index >= lineas.length) return;
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      setIsPlaying(false);
+    }
+    setShadowingIndex(index);
   };
 
   useLayoutEffect(() => {
@@ -632,12 +653,16 @@ export default function HistoriasPage() {
                     {lineas.map((s, i) => {
                       const current = i === indiceAudio;
                       return (
-                        <li key={i} id={`linea-${i}`} className="story-line">
+                        <li
+                          key={i}
+                          id={`linea-${i}`}
+                          className="story-line group/line relative"
+                        >
                           <div
                             onMouseDown={handleMouseDown}
                             onMouseUp={(e) => handleMouseUpPlay(i, e)}
                             className={cn(
-                              "grid w-full cursor-pointer grid-cols-[1.75rem_1fr] md:grid-cols-[2.5rem_1fr] gap-x-2 rounded-xl px-2 py-3 md:px-4 text-left transition-all",
+                              "grid w-full cursor-pointer grid-cols-[1.75rem_1fr] md:grid-cols-[2.5rem_1fr] gap-x-2 rounded-xl px-2 py-3 md:px-4 text-left transition-all pr-12 md:pr-14",
                               current
                                 ? "bg-secondary/60 shadow-sm border border-border/50 scale-[1.01]"
                                 : "hover:bg-muted/40 border border-transparent",
@@ -686,6 +711,23 @@ export default function HistoriasPage() {
                                 </>
                               )}
                             </span>
+                          </div>
+
+                          {/* Botón de Shadowing en la línea */}
+                          <div className="absolute right-2 top-3 z-10 opacity-70 sm:opacity-0 sm:group-hover/line:opacity-100 transition-opacity">
+                            <button
+                              type="button"
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                abrirShadowing(i);
+                              }}
+                              className="inline-flex items-center gap-1 rounded-lg border border-border/70 bg-card/90 px-2 py-1 text-[11px] font-medium text-muted-foreground hover:border-primary/50 hover:bg-primary hover:text-primary-foreground transition-all shadow-xs backdrop-blur-xs"
+                              title="Practicar pronunciación con Shadowing"
+                            >
+                              <Mic className="size-3" />
+                              <span className="hidden sm:inline">Shadowing</span>
+                            </button>
                           </div>
                         </li>
                       );
@@ -757,6 +799,16 @@ export default function HistoriasPage() {
                       </button>
                     ))}
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => abrirShadowing(indiceAudio >= 0 ? indiceAudio : 0)}
+                    className="ml-1 inline-flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-all shrink-0"
+                    title="Practicar con Shadowing la línea activa"
+                  >
+                    <Mic className="size-3.5" />
+                    <span className="hidden sm:inline">Shadowing</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -782,6 +834,59 @@ export default function HistoriasPage() {
         chatId={historiaActiva || 0}
         origen="historia"
       />
+
+      {/* Modal de Shadowing en Contexto para Historias */}
+      <Dialog
+        open={shadowingIndex !== null}
+        onOpenChange={(open) => !open && setShadowingIndex(null)}
+      >
+        <DialogContent className="max-h-[94dvh] overflow-y-auto p-0 sm:max-w-2xl md:max-w-3xl bg-background rounded-2xl border border-border shadow-2xl">
+          <DialogHeader className="border-b border-border px-6 py-4 flex flex-row items-center justify-between">
+            <div>
+              <DialogTitle className="font-serif text-lg font-semibold flex items-center gap-2">
+                <Mic className="size-4 text-primary" />
+                Shadowing en Contexto
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Historia: "{historiaTitulo}"
+              </DialogDescription>
+            </div>
+          </DialogHeader>
+
+          <div className="p-3 sm:p-5">
+            {shadowingIndex !== null && lineas[shadowingIndex] && (
+              <ShadowingCard
+                className="border-0 shadow-none p-2 md:p-4 bg-card/40"
+                frase={{
+                  id: lineas[shadowingIndex].id
+                    ? `hist_${lineas[shadowingIndex].id}`
+                    : `hist_temp_${shadowingIndex}`,
+                  en: lineas[shadowingIndex].en,
+                  es: lineas[shadowingIndex].es,
+                  ipa: lineas[shadowingIndex].ipa,
+                  audio: lineas[shadowingIndex].audio,
+                  origen: "Historia",
+                  contexto: historiaTitulo,
+                }}
+                numero={shadowingIndex + 1}
+                total={lineas.length}
+                onSiguiente={() =>
+                  setShadowingIndex((prev) =>
+                    prev !== null ? Math.min(prev + 1, lineas.length - 1) : null
+                  )
+                }
+                onAnterior={() =>
+                  setShadowingIndex((prev) =>
+                    prev !== null ? Math.max(prev - 1, 0) : null
+                  )
+                }
+                puedeAvanzar={shadowingIndex < lineas.length - 1}
+                puedeRetroceder={shadowingIndex > 0}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

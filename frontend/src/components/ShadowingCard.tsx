@@ -53,6 +53,7 @@ interface ShadowingCardProps {
   frase: FraseShadowing;
   numero?: number;
   total?: number;
+  className?: string;
   onSiguiente?: () => void;
   onAnterior?: () => void;
   puedeAvanzar?: boolean;
@@ -66,6 +67,7 @@ export default function ShadowingCard({
   frase,
   numero,
   total,
+  className,
   onSiguiente,
   onAnterior,
   puedeAvanzar = false,
@@ -340,7 +342,12 @@ export default function ShadowingCard({
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm flex flex-col gap-6 relative">
+    <div
+      className={cn(
+        "rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm flex flex-col gap-6 relative",
+        className
+      )}
+    >
       {/* Header de la tarjeta: origen y contador */}
       <div className="flex items-center justify-between border-b border-border/60 pb-3 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
