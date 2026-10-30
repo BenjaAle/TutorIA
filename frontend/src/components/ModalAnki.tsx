@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import {
+  AlertTriangle,
   Check,
   ChevronLeft,
   ChevronRight,
   Puzzle,
+  RotateCcw,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -117,6 +119,11 @@ export default function ModalAnki({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [injectedLoading, setInjectedLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [imageError, setImageError] = useState<{
+    index: number;
+    termino: string;
+    mensaje: string;
+  } | null>(null);
 
   // Cuando se abre el modal o cambian las cartas iniciales, cargamos esas cartas al estado
   useEffect(() => {
@@ -133,6 +140,7 @@ export default function ModalAnki({
     );
     setCurrentIndex(0);
     setSent(false);
+    setImageError(null);
   }, [cartasIniciales, isOpen]);
 
   const handleFieldChange = (campo: keyof CartaAnki, valor: any) => {
@@ -207,21 +215,42 @@ export default function ModalAnki({
   };
 
   // 7. Enviar y procesar las cartas con el backend
-  const handleConfirmarTodo = async () => {
+  const handleConfirmarTodo = async (forzarSinImagen = false) => {
     if (cartas.length === 0) {
       alert("No hay cartas para enviar.");
       return;
     }
     setInjectedLoading(true);
+    setImageError(null);
     try {
       const res = await fetch("/inyectar_cartas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: chatId, cartas: cartas }),
+        body: JSON.stringify({
+          chat_id: chatId,
+          cartas: cartas,
+          forzar_sin_imagen: forzarSinImagen,
+        }),
       });
 
       // En caso de error, lo capturo con catch y retorno un objeto vacío
       const data = await res.json().catch(() => ({}));
+
+      // Si el backend detectó que falló la imagen en alguna carta
+      if (data.error === "IMAGEN_FALLIDA" || data.codigo === "IMAGEN_FALLIDA") {
+        const errorIdx =
+          typeof data.carta_index === "number" ? data.carta_index : currentIndex;
+        setCurrentIndex(errorIdx);
+        setImageError({
+          index: errorIdx,
+          termino:
+            data.termino_imagen || cartas[errorIdx]?.termino_imagen || "",
+          mensaje:
+            data.mensaje ||
+            "No se pudo encontrar o descargar una imagen para esta carta.",
+        });
+        return;
+      }
 
       if (
         !res.ok ||
@@ -283,6 +312,62 @@ export default function ModalAnki({
             Revisa los campos antes de integrarlos al mazo.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Banner interactivo de Fallo de Imagen */}
+        {imageError && (
+          <div className="bg-amber-500/10 border-b border-amber-500/30 px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-100 animate-in fade-in duration-200">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="size-4.5 text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-foreground">
+                  No se pudo encontrar o descargar una imagen para esta carta
+                </p>
+                <p className="text-muted-foreground mt-0.5">
+                  Término de búsqueda:{" "}
+                  <span className="font-mono font-bold text-foreground">
+                    "{imageError.termino}"
+                  </span>{" "}
+                  (Carta {imageError.index + 1} de {cartas.length}).
+                  {currentIndex !== imageError.index ? (
+                    <button
+                      type="button"
+                      onClick={() => setCurrentIndex(imageError.index)}
+                      className="ml-1 underline font-semibold text-amber-600 dark:text-amber-400 hover:opacity-80"
+                    >
+                      Ir a la carta {imageError.index + 1} para editar
+                    </button>
+                  ) : (
+                    " Modifica el término en el campo \"Imagen Pexels\" para reintentar o inyéctala sin imagen."
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => handleConfirmarTodo(false)}
+                disabled={injectedLoading}
+                className="h-8 text-xs border-amber-500/40 hover:bg-amber-500/20"
+              >
+                <RotateCcw className="size-3.5 mr-1" />
+                {injectedLoading ? "Probando..." : "Reintentar"}
+              </Button>
+
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => handleConfirmarTodo(true)}
+                disabled={injectedLoading}
+                className="h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                {injectedLoading ? "Inyectando..." : "Inyectar de todos modos"}
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div className="grid gap-0 md:grid-cols-[1.1fr_1fr]">
           <div className="border-b border-border bg-muted/30 p-6 md:border-b-0 md:border-r relative flex flex-col">
@@ -553,13 +638,26 @@ export default function ModalAnki({
 
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
-                <Label htmlFor="anki-pexels">Imagen Pexels</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="anki-pexels">Imagen Pexels</Label>
+                  {imageError && imageError.index === currentIndex && (
+                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                      ⚠️ No encontrada
+                    </span>
+                  )}
+                </div>
                 <Input
                   id="anki-pexels"
                   value={card?.termino_imagen || ""}
                   onChange={(e) =>
                     handleFieldChange("termino_imagen", e.target.value)
                   }
+                  className={cn(
+                    imageError &&
+                      imageError.index === currentIndex &&
+                      "border-amber-500 focus-visible:ring-amber-500 bg-amber-500/10",
+                  )}
+                  placeholder="ej. apple, sunset..."
                 />
               </div>
               <div>
@@ -627,7 +725,7 @@ export default function ModalAnki({
             </DialogClose>
             <Button
               className="h-9 px-4 flex-1 md:flex-initial"
-              onClick={handleConfirmarTodo}
+              onClick={() => handleConfirmarTodo(false)}
               disabled={sent || injectedLoading}
             >
               {injectedLoading ? "Enviando..." : "Enviar a Anki"}

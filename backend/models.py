@@ -22,6 +22,7 @@ class RenombrarRequest(BaseModel):
 class InyectarRequest(BaseModel):
     chat_id: int
     cartas: list
+    forzar_sin_imagen: bool = False
 
 
 class NuevaHistoria(BaseModel):

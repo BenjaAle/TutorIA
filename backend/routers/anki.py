@@ -217,6 +217,52 @@ async def inyectar_cartas(
             return {"mensaje": "No se enviaron cartas para inyectar."}
 
         # ------------------------------------------------------------------
+        # FASE 0: VERIFICAR Y DESCARGAR IMÁGENES (PEXELS)
+        # ------------------------------------------------------------------
+        imagenes_descargadas = {}  # i -> (nombre_archivo_img, img_bytes)
+
+        for i, carta in enumerate(req.cartas):
+            texto_frente = str(carta.get("frente", "")).strip()
+            termino_imagen = str(carta.get("termino_imagen", "")).strip()
+            nombre_limpio = "".join(
+                c if c.isalnum() else "_" for c in texto_frente[:15]
+            )
+
+            # Si la carta tiene término de imagen y no se especificó omitir imagen
+            if termino_imagen and not carta.get("sin_imagen", False):
+                exito_imagen = False
+                try:
+                    url_busqueda = f"https://api.pexels.com/v1/search?query={termino_imagen}&per_page=1"
+                    respuesta_pexels = requests.get(
+                        url_busqueda,
+                        headers={"Authorization": api_key_pexels},
+                        timeout=5,
+                    )
+                    if respuesta_pexels.status_code == 200:
+                        datos_pexels = respuesta_pexels.json()
+                        photos = datos_pexels.get("photos", [])
+                        if photos and len(photos) > 0:
+                            url_imagen = photos[0]["src"]["medium"]
+                            res_img = requests.get(url_imagen, timeout=5)
+                            if res_img.status_code == 200 and len(res_img.content) > 0:
+                                nombre_archivo_img = f"ia_img_{nombre_limpio}_{i}.jpg"
+                                imagenes_descargadas[i] = (nombre_archivo_img, res_img.content)
+                                exito_imagen = True
+                except Exception as e_img:
+                    print(f"Error descargando imagen para '{termino_imagen}': {e_img}")
+
+                # Si falló la imagen y NO se forzó inyectar sin imagen:
+                if not exito_imagen and not req.forzar_sin_imagen:
+                    return {
+                        "error": "IMAGEN_FALLIDA",
+                        "codigo": "IMAGEN_FALLIDA",
+                        "mensaje": f"No se pudo encontrar o descargar una imagen para el término '{termino_imagen}'.",
+                        "carta_index": i,
+                        "termino_imagen": termino_imagen,
+                        "palabra": texto_frente,
+                    }
+
+        # ------------------------------------------------------------------
         # FASE 1: RECOPILAR Y GENERAR TODOS LOS AUDIOS EN PARALELO
         # ------------------------------------------------------------------
         tareas_audio = []
@@ -350,42 +396,21 @@ async def inyectar_cartas(
                     f"{badge_cefr_html}<b>{texto_reverso_base_html}</b>"
                 )
 
-            # 1. IMAGEN DE PEXELS
-            if termino_imagen:
-                # por si no carga bien la imagen, uso try
+            # 1. IMAGEN DE PEXELS (previamente obtenida en Fase 0)
+            if i in imagenes_descargadas:
+                nombre_archivo_img, img_data = imagenes_descargadas[i]
                 try:
-                    url_busqueda = f"https://api.pexels.com/v1/search?query={termino_imagen}&per_page=1"
-                    # Hago la petición a Pexels con requests y un timeout de 5 segundos
-                    respuesta_pexels = requests.get(
-                        url_busqueda,
-                        headers={"Authorization": api_key_pexels},
-                        timeout=5,  # cancela si pasan 5 segundos sin respuesta
+                    invoke_anki(
+                        "storeMediaFile",
+                        filename=nombre_archivo_img,
+                        data=base64.b64encode(img_data).decode("utf-8"),
                     )
-                    if respuesta_pexels.status_code == 200:
-                        datos_pexels = respuesta_pexels.json()
-                        if datos_pexels.get("photos"):
-                            # Si hay fotos, tomo la primera y su URL de tamaño medio
-                            url_imagen = datos_pexels["photos"][0]["src"]["medium"]
-
-                            # descargar la imagen y guardarla en memoria
-                            # .content devuelve el contenido binario de la respuesta
-                            # (la imagen en bytes)
-                            img_data = requests.get(url_imagen, timeout=5).content
-                            nombre_archivo_img = f"ia_img_{nombre_limpio}_{i}.jpg"
-
-                            # Invocar AnkiConnect para almacenar la imagen en la colección de Anki
-                            invoke_anki(
-                                "storeMediaFile",
-                                filename=nombre_archivo_img,
-                                data=base64.b64encode(img_data).decode("utf-8"),
-                            )
-                            # Se agrega la imagen al reverso de la carta, antes del texto
-                            texto_reverso_final = (
-                                f"<img src='{nombre_archivo_img}'><br><br>"
-                                + texto_reverso_final
-                            )
-                except:
-                    pass
+                    texto_reverso_final = (
+                        f"<img src='{nombre_archivo_img}'><br><br>"
+                        + texto_reverso_final
+                    )
+                except Exception as err_media:
+                    print(f"Error guardando imagen en Anki: {err_media}")
 
             # 2. VINCULAR AUDIO FRENTE (El archivo ya fue creado en la Fase 1)
             nombre_archivo_frente = f"ia_audio_frente_{nombre_limpio}_{i}.mp3"

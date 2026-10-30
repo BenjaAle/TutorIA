@@ -747,7 +747,7 @@ export default function HistoriasPage() {
                                 e.stopPropagation();
                                 abrirShadowing(i);
                               }}
-                              className="inline-flex items-center gap-1 rounded-lg border border-border/70 bg-card/90 px-2 py-1 text-[11px] font-medium text-muted-foreground hover:border-primary/50 hover:bg-primary hover:text-primary-foreground transition-all shadow-xs backdrop-blur-xs opacity-70 sm:opacity-0 sm:group-hover/line:opacity-100 transition-opacity"
+                              className="inline-flex items-center gap-1 rounded-lg border border-border/70 bg-card/90 px-2 py-1 text-[11px] font-medium text-muted-foreground hover:border-primary/50 hover:bg-primary hover:text-primary-foreground transition-all shadow-xs backdrop-blur-xs opacity-70 sm:opacity-0 sm:group-hover/line:opacity-100"
                               title="Practicar pronunciación con Shadowing"
                             >
                               <Mic className="size-3" />
