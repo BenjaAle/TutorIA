@@ -46,4 +46,12 @@ class GenerarTemaRequest(BaseModel):
 
 class SpeakingAnkiItemRequest(BaseModel):
     key: str
-
+
+
+class GenerarFrasesShadowingRequest(BaseModel):
+    nivel: str = "B1"
+    categoria: str = "Casual & Conversación"
+
+
+class SintetizarFraseRequest(BaseModel):
+    texto: str

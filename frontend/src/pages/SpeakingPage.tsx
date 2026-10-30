@@ -14,9 +14,12 @@ import {
   ChevronRight,
   Loader2,
   Check,
+  Headphones,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ModalAnki, { type CartaAnki } from "../components/ModalAnki";
+import ShadowingCard, { type FraseShadowing } from "../components/ShadowingCard";
 
 interface TemaSpeaking {
   id: string;
@@ -87,10 +90,30 @@ interface EvaluacionHistorial {
   detalles: EvaluacionDetalles;
 }
 
-type TabType = "practica" | "historial";
+type TabType = "practica" | "shadowing" | "historial";
+type ShadowingSource = "estudiadas" | "ia";
+
+const CATEGORIAS_SHADOWING = [
+  "Casual & Conversación",
+  "Connected Speech & Ritmo",
+  "Expresiones Idiomáticas & Coloquiales",
+  "Profesional & Negocios",
+  "Preguntas & Entonación",
+];
+
+const NIVELES_SHADOWING = ["A1", "A2", "B1", "B2", "C1", "C2"];
 
 export default function SpeakingPage() {
   const [activeTab, setActiveTab] = useState<TabType>("practica");
+
+  // Shadowing
+  const [shadowingSource, setShadowingSource] = useState<ShadowingSource>("estudiadas");
+  const [frasesShadowing, setFrasesShadowing] = useState<FraseShadowing[]>([]);
+  const [currentShadowingIndex, setCurrentShadowingIndex] = useState(0);
+  const [loadingShadowing, setLoadingShadowing] = useState(false);
+  const [generandoShadowingIA, setGenerandoShadowingIA] = useState(false);
+  const [shadowingNivel, setShadowingNivel] = useState("B1");
+  const [shadowingCategoria, setShadowingCategoria] = useState("Casual & Conversación");
 
   // Temas
   const [temas, setTemas] = useState<TemaSpeaking[]>([]);
@@ -238,6 +261,108 @@ export default function SpeakingPage() {
       console.error("Error cargando historial:", e);
     } finally {
       setLoadingHistorial(false);
+    }
+  };
+
+  // Cargar frases de Shadowing cuando se entra a la pestaña
+  useEffect(() => {
+    if (activeTab === "shadowing") {
+      if (shadowingSource === "estudiadas") {
+        cargarFrasesShadowingEstudiadas();
+      } else {
+        cargarFrasesShadowingIA();
+      }
+    }
+  }, [activeTab, shadowingSource]);
+
+  const cargarFrasesShadowingEstudiadas = async () => {
+    setLoadingShadowing(true);
+    try {
+      const res = await fetch("/api/speaking/shadowing/frases_estudiadas");
+      if (!res.ok) throw new Error("Error cargando frases");
+      const data = await res.json();
+      setFrasesShadowing(data.frases || []);
+      setCurrentShadowingIndex(0);
+    } catch (e) {
+      console.error("Error cargando frases estudiadas:", e);
+    } finally {
+      setLoadingShadowing(false);
+    }
+  };
+
+  const cargarFrasesShadowingIA = async () => {
+    setLoadingShadowing(true);
+    try {
+      const res = await fetch("/api/speaking/shadowing/frases_ia");
+      if (!res.ok) throw new Error("Error cargando frases de IA");
+      const data = await res.json();
+      setFrasesShadowing(data.frases || []);
+      setCurrentShadowingIndex(0);
+    } catch (e) {
+      console.error("Error cargando frases de IA:", e);
+    } finally {
+      setLoadingShadowing(false);
+    }
+  };
+
+  const generarFrasesShadowingConIA = async () => {
+    setGenerandoShadowingIA(true);
+    try {
+      const res = await fetch("/api/speaking/shadowing/generar_frases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nivel: shadowingNivel,
+          categoria: shadowingCategoria,
+        }),
+      });
+      if (!res.ok) throw new Error("Error al generar frases con IA");
+      const data = await res.json();
+      if (data.exito && Array.isArray(data.frases)) {
+        // Prepend las 5 nuevas a las existentes para conservarlas todas
+        setFrasesShadowing((prev) => [...data.frases, ...prev]);
+        setCurrentShadowingIndex(0);
+      }
+    } catch (e: any) {
+      alert("Error al generar frases de shadowing: " + e.message);
+    } finally {
+      setGenerandoShadowingIA(false);
+    }
+  };
+
+  const handleEliminarFraseIA = async (id: string | number) => {
+    if (!window.confirm("¿Seguro que deseas eliminar esta frase de tu biblioteca?")) return;
+    try {
+      const res = await fetch(`/api/speaking/shadowing/frases_ia/${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setFrasesShadowing((prev) => prev.filter((f) => f.id !== id));
+        setCurrentShadowingIndex((prev) => Math.max(0, prev - 1));
+      }
+    } catch (e) {
+      console.error("Error eliminando frase:", e);
+    }
+  };
+
+  const handleScoreActualizado = (id: string | number, score: number) => {
+    setFrasesShadowing((prev) =>
+      prev.map((f) => {
+        if (f.id === id) {
+          const actual = f.mejor_score ?? 0;
+          return { ...f, mejor_score: Math.max(actual, score) };
+        }
+        return f;
+      })
+    );
+  };
+
+  const handleSwitchShadowingSource = (src: ShadowingSource) => {
+    setShadowingSource(src);
+    if (src === "estudiadas") {
+      cargarFrasesShadowingEstudiadas();
+    } else {
+      cargarFrasesShadowingIA();
     }
   };
 
@@ -673,8 +798,23 @@ export default function SpeakingPage() {
                   : "border-transparent text-muted-foreground hover:text-foreground"
               )}
             >
-              <Mic className="size-4 text-black" />
-              Práctica
+              <Mic className="size-4" />
+              Discurso Libre
+            </button>
+            <button
+              role="tab"
+              type="button"
+              aria-selected={activeTab === "shadowing"}
+              onClick={() => setActiveTab("shadowing")}
+              className={cn(
+                "-mb-px flex items-center gap-2 border-b-2 pb-3 text-[15px] transition-colors",
+                activeTab === "shadowing"
+                  ? "border-primary font-semibold text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Headphones className="size-4" />
+              Shadowing Guiado
             </button>
             <button
               role="tab"
@@ -1422,7 +1562,222 @@ export default function SpeakingPage() {
             </div>
           )}
 
-          {/* VISTA 2: HISTORIAL Y PROGRESO */}
+          {/* VISTA 2: SHADOWING (REPETICIÓN GUIADA) */}
+          {activeTab === "shadowing" && (
+            <div className="space-y-6">
+              {/* Selector de Origen de Frases (Estilo Cloze) */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-4">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSwitchShadowingSource("estudiadas")}
+                    className={cn(
+                      "rounded-xl px-4 py-2 text-xs font-semibold border transition-all flex items-center gap-1.5",
+                      shadowingSource === "estudiadas"
+                        ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                        : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted"
+                    )}
+                  >
+                    <BookOpen className="size-3.5" />
+                    <span>Mis Historias & Anki</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSwitchShadowingSource("ia")}
+                    className={cn(
+                      "rounded-xl px-4 py-2 text-xs font-semibold border transition-all flex items-center gap-1.5",
+                      shadowingSource === "ia"
+                        ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                        : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted"
+                    )}
+                  >
+                    <Sparkles className="size-3.5" />
+                    <span>Generador con IA</span>
+                  </button>
+                </div>
+
+                <span className="text-xs text-muted-foreground">
+                  {shadowingSource === "estudiadas"
+                    ? "Frases tomadas de tus lecturas y tarjetas"
+                    : "Sesiones guiadas con audio neural creadas por Gemini"}
+                </span>
+              </div>
+
+              {/* Panel de configuración si el origen es IA */}
+              {shadowingSource === "ia" && (
+                <div className="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h4 className="font-semibold text-foreground text-sm flex items-center gap-2">
+                        <Sparkles className="size-4 text-amber-500" />
+                        Entrenamiento guiado con IA
+                      </h4>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Elige tu nivel y foco temático para generar un nuevo set de 5 oraciones con pronunciación nativa.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={generarFrasesShadowingConIA}
+                      disabled={generandoShadowingIA}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-foreground text-background px-4 py-2 text-xs font-semibold hover:opacity-90 transition-all disabled:opacity-50 shadow-sm shrink-0"
+                    >
+                      {generandoShadowingIA ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="size-3.5 text-amber-300" />
+                      )}
+                      <span>{generandoShadowingIA ? "Sintetizando audios..." : "Generar 5 Frases"}</span>
+                    </button>
+                  </div>
+
+                  {/* Selectores de Nivel y Categoría */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-border/50">
+                    <div>
+                      <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1.5">
+                        Nivel de dificultad
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {NIVELES_SHADOWING.map((lvl) => (
+                          <button
+                            key={lvl}
+                            type="button"
+                            onClick={() => setShadowingNivel(lvl)}
+                            className={cn(
+                              "rounded-lg px-2.5 py-1 text-xs font-semibold border transition-all",
+                              shadowingNivel === lvl
+                                ? "border-primary bg-primary/10 text-primary font-bold"
+                                : "border-border bg-muted/30 text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            {lvl}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1.5">
+                        Foco temático o de ritmo
+                      </label>
+                      <select
+                        value={shadowingCategoria}
+                        onChange={(e) => setShadowingCategoria(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-background px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      >
+                        {CATEGORIAS_SHADOWING.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Estado de carga */}
+              {loadingShadowing ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
+                  <Loader2 className="size-8 animate-spin text-primary" />
+                  <p className="text-sm font-medium">Cargando oraciones de shadowing...</p>
+                </div>
+              ) : frasesShadowing.length === 0 ? (
+                /* Estado vacío */
+                <div className="rounded-2xl border border-dashed border-border p-12 text-center space-y-4">
+                  <Headphones className="size-12 text-muted-foreground/60 mx-auto stroke-1" />
+                  <div className="space-y-1">
+                    <h3 className="font-serif text-xl font-medium text-foreground">
+                      {shadowingSource === "estudiadas"
+                        ? "Aún no tienes oraciones de historias"
+                        : "Genera tu primer set de Shadowing"}
+                    </h3>
+                    <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                      {shadowingSource === "estudiadas"
+                        ? "Genera una historia en la sección 'Historias' para practicar sus líneas, o utiliza el 'Generador con IA' para empezar a practicar ahora."
+                        : "Haz clic en 'Generar 5 Frases' para que Gemini cree un set con audio neural y notas de entonación."}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (shadowingSource === "estudiadas") {
+                        handleSwitchShadowingSource("ia");
+                      } else {
+                        generarFrasesShadowingConIA();
+                      }
+                    }}
+                    disabled={generandoShadowingIA}
+                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity shadow-sm"
+                  >
+                    {generandoShadowingIA ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="size-4 text-amber-300" />
+                    )}
+                    <span>
+                      {shadowingSource === "estudiadas"
+                        ? "Probar Generador con IA"
+                        : "Generar 5 Frases Ahora"}
+                    </span>
+                  </button>
+                </div>
+              ) : (
+                /* Tarjeta de Shadowing Activa */
+                <div className="space-y-4">
+                  <ShadowingCard
+                    frase={frasesShadowing[currentShadowingIndex]}
+                    numero={currentShadowingIndex + 1}
+                    total={frasesShadowing.length}
+                    onSiguiente={() =>
+                      setCurrentShadowingIndex((prev) =>
+                        Math.min(prev + 1, frasesShadowing.length - 1)
+                      )
+                    }
+                    onAnterior={() =>
+                      setCurrentShadowingIndex((prev) => Math.max(prev - 1, 0))
+                    }
+                    puedeAvanzar={currentShadowingIndex < frasesShadowing.length - 1}
+                    puedeRetroceder={currentShadowingIndex > 0}
+                    onEliminar={shadowingSource === "ia" ? handleEliminarFraseIA : undefined}
+                    onScoreActualizado={handleScoreActualizado}
+                  />
+
+                  {/* Selector de índice rápido (Frase 1, 2, 3...) */}
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                    {frasesShadowing.map((f, idx) => (
+                      <button
+                        key={f.id || idx}
+                        type="button"
+                        onClick={() => setCurrentShadowingIndex(idx)}
+                        className={cn(
+                          "rounded-lg px-3 py-1 text-xs font-mono font-medium border transition-all flex items-center gap-1",
+                          currentShadowingIndex === idx
+                            ? "border-primary bg-primary text-primary-foreground shadow-sm scale-105 font-bold"
+                            : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted"
+                        )}
+                      >
+                        <span>#{idx + 1}</span>
+                        {f.mejor_score !== undefined && f.mejor_score !== null && (
+                          <span
+                            className={cn(
+                              "size-1.5 rounded-full",
+                              f.mejor_score >= 80 ? "bg-emerald-500" : "bg-amber-500"
+                            )}
+                          />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* VISTA 3: HISTORIAL Y PROGRESO */}
           {activeTab === "historial" && (
             <div className="space-y-4">
               {loadingHistorial ? (

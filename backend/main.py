@@ -126,12 +126,29 @@ def iniciar_bd():
                  UNIQUE(user_id, item_key))"""
     )
 
+    # Tabla para guardar frases de shadowing generadas con IA
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS frases_shadowing (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                 user_id TEXT NOT NULL, 
+                 en TEXT NOT NULL, 
+                 es TEXT NOT NULL, 
+                 ipa TEXT DEFAULT '', 
+                 foco_ritmo TEXT DEFAULT '', 
+                 audio TEXT DEFAULT '', 
+                 categoria TEXT DEFAULT '', 
+                 nivel TEXT DEFAULT 'B1', 
+                 mejor_score INTEGER, 
+                 fecha TEXT)"""
+    )
+
     conn.commit()
     conn.close()
 
     # Crear carpeta para guardar los audios si no existen
     os.makedirs("static/audios", exist_ok=True)
     os.makedirs("static/audios/speaking", exist_ok=True)
+    os.makedirs("static/audios/shadowing", exist_ok=True)
 
 
 iniciar_bd()
@@ -160,4 +177,3 @@ app.include_router(fonetica.router)
 app.include_router(vocabulario.router)
 app.include_router(ejercicios.router)
 app.include_router(speaking.router, prefix="/api/speaking") # prefijo a las rutas de speaking.py
-

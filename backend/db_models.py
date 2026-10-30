@@ -84,3 +84,36 @@ class SpeakingAnkiItem(Base):
             "fecha": self.fecha,
         }
 
+
+class FraseShadowingDB(Base):
+    __tablename__ = "frases_shadowing"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    en: Mapped[str] = mapped_column(Text, nullable=False)
+    es: Mapped[str] = mapped_column(Text, nullable=False)
+    ipa: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    foco_ritmo: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    audio: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    categoria: Mapped[str] = mapped_column(String, nullable=False, default="")
+    nivel: Mapped[str] = mapped_column(String, nullable=False, default="B1")
+    mejor_score: Mapped[int] = mapped_column(Integer, nullable=True)
+    fecha: Mapped[str] = mapped_column(String, nullable=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "en": self.en,
+            "es": self.es,
+            "ipa": self.ipa,
+            "foco_ritmo": self.foco_ritmo,
+            "audio": self.audio,
+            "categoria": self.categoria,
+            "nivel": self.nivel,
+            "mejor_score": self.mejor_score,
+            "origen": "Generado con IA",
+            "contexto": f"{self.categoria} • {self.nivel}",
+            "fecha": self.fecha,
+        }
+
+
