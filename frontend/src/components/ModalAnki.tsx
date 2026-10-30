@@ -411,7 +411,7 @@ export default function ModalAnki({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleCerrar}>
-      <DialogContent className="max-h-[92dvh] gap-0 overflow-y-auto p-0 sm:max-w-4xl bg-background rounded-lg border border-border shadow-lg">
+      <DialogContent className="max-h-[92dvh] gap-0 overflow-y-auto scrollbar-hide p-0 sm:max-w-4xl bg-background rounded-lg border border-border shadow-lg">
         <DialogHeader className="border-b border-border px-6 py-5">
           <DialogTitle className="font-serif text-2xl font-semibold">
             Revisa tus cartas para Anki
@@ -502,7 +502,7 @@ export default function ModalAnki({
               })()}
             </div>
 
-            <div className="flex-1 flex flex-col rounded-xl border border-border bg-card p-5 text-center shadow-sm overflow-y-auto max-h-[460px] justify-between">
+            <div className="flex-1 flex flex-col rounded-xl border border-border bg-card p-5 text-center shadow-sm overflow-y-auto scrollbar-hide max-h-[460px] justify-between">
               <div className="space-y-4">
                 {/* Frente */}
                 <div className="py-2 border-b border-border/60">

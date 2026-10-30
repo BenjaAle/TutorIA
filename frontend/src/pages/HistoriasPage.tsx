@@ -648,7 +648,7 @@ export default function HistoriasPage() {
               {/* Reading Board */}
               <div
                 id="story-board"
-                className="flex-1 overflow-y-auto px-4 py-6 md:px-8 bg-muted/10 pb-40"
+                className="flex-1 overflow-y-auto px-4 py-6 md:px-8 bg-muted/10 pb-40 scrollbar-hide"
               >
                 {modo === "escucha" && indiceAudio === -1 ? (
                   <div className="flex flex-col items-center py-12 text-center h-full justify-center">
