@@ -14,6 +14,7 @@ class OracionCloze(Base):
     chat_id: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     origen: Mapped[str] = mapped_column(String, nullable=False, default="anki")
     palabra_oculta: Mapped[str] = mapped_column(String, nullable=False, default="")
+    mejor_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     def to_dict(self) -> dict:
         """Serializa el modelo a un diccionario compatible con las respuestas JSON esperadas por el frontend."""
@@ -25,6 +26,7 @@ class OracionCloze(Base):
             "chat_id": self.chat_id,
             "origen": self.origen,
             "palabra_oculta": self.palabra_oculta,
+            "mejor_score": self.mejor_score,
         }
 
 

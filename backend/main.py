@@ -60,11 +60,16 @@ def iniciar_bd():
                  ruta_audio TEXT)"""
     )
 
-    # Se agrega la columna oracion_ipa
+    # Se agrega la columna oracion_ipa y mejor_score a lineas_historia
     try:
         c.execute("ALTER TABLE lineas_historia ADD COLUMN oracion_ipa TEXT")
     except sqlite3.OperationalError:
         pass  # Si la columna ya existe, simplemente ignora el error
+
+    try:
+        c.execute("ALTER TABLE lineas_historia ADD COLUMN mejor_score INTEGER")
+    except sqlite3.OperationalError:
+        pass
 
     # Tabla para destacar las palabras extraidas de las historias.
     # NOTA: En la migración multiusuario, omitimos la palabra como UNIQUE universal y la atamos al usuario luego.
@@ -100,6 +105,10 @@ def iniciar_bd():
                  origen TEXT DEFAULT 'anki',
                  palabra_oculta TEXT DEFAULT '')"""
     )
+    try:
+        c.execute("ALTER TABLE oraciones_cloze ADD COLUMN mejor_score INTEGER")
+    except sqlite3.OperationalError:
+        pass
 
     # Tabla para guardar evaluaciones de speaking
     c.execute(

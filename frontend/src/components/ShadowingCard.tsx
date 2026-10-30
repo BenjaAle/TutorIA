@@ -63,6 +63,17 @@ interface ShadowingCardProps {
   onScoreActualizado?: (id: string | number, nuevoScore: number) => void;
 }
 
+// Helper unificado para color de puntuación
+export const getScoreBadgeClasses = (score: number) => {
+  if (score >= 80) {
+    return "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30";
+  }
+  if (score >= 60) {
+    return "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30";
+  }
+  return "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30";
+};
+
 export default function ShadowingCard({
   frase,
   numero,
@@ -98,9 +109,14 @@ export default function ShadowingCard({
   const [evaluando, setEvaluando] = useState(false);
   const [resultado, setResultado] = useState<EvaluacionShadowing | null>(null);
   const [selectedWordTip, setSelectedWordTip] = useState<WordAnalysis | null>(null);
+  const [mejorScore, setMejorScore] = useState<number | null>(
+    frase.mejor_score !== undefined ? frase.mejor_score : null
+  );
 
   // Al cambiar de frase, reiniciar estados de grabación y evaluación
   useEffect(() => {
+    setMejorScore(frase.mejor_score !== undefined ? frase.mejor_score : null);
+
     // Detener reproducción previa
     if (modelAudioRef.current) {
       modelAudioRef.current.pause();
@@ -301,6 +317,7 @@ export default function ShadowingCard({
       formData.append("audio", userAudioBlob, "shadowing_recording.webm");
       formData.append("frase_objetivo", frase.en);
       formData.append("ipa_objetivo", frase.ipa || "");
+      formData.append("item_id", String(frase.id || ""));
 
       const res = await fetch("/api/speaking/shadowing/evaluar", {
         method: "POST",
@@ -315,8 +332,16 @@ export default function ShadowingCard({
       const data = await res.json();
       if (data.exito && data.evaluacion) {
         setResultado(data.evaluacion);
-        if (typeof data.evaluacion.overall_score === "number" && onScoreActualizado) {
-          onScoreActualizado(frase.id, data.evaluacion.overall_score);
+        const scoreNuevo =
+          typeof data.evaluacion.mejor_score === "number"
+            ? data.evaluacion.mejor_score
+            : data.evaluacion.overall_score;
+
+        if (typeof scoreNuevo === "number") {
+          setMejorScore((prev) => (prev === null ? scoreNuevo : Math.max(prev, scoreNuevo)));
+          if (onScoreActualizado) {
+            onScoreActualizado(frase.id, scoreNuevo);
+          }
         }
       }
     } catch (e: any) {
@@ -329,16 +354,7 @@ export default function ShadowingCard({
 
   // Helper para color de puntuación
   const getScoreColorBadge = (score: number) => {
-    if (score >= 85) {
-      return "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30";
-    }
-    if (score >= 70) {
-      return "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30";
-    }
-    if (score >= 50) {
-      return "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30";
-    }
-    return "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30";
+    return getScoreBadgeClasses(score);
   };
 
   return (
@@ -362,13 +378,16 @@ export default function ShadowingCard({
         </div>
 
         <div className="flex items-center gap-2">
-          {frase.mejor_score !== undefined && frase.mejor_score !== null && (
+          {mejorScore !== undefined && mejorScore !== null && (
             <span
-              className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 text-[11px] font-bold font-mono"
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-bold font-mono shadow-2xs",
+                getScoreBadgeClasses(mejorScore)
+              )}
               title="Tu puntuación más alta en esta frase"
             >
               <Award className="size-3" />
-              {frase.mejor_score}%
+              {mejorScore}%
             </span>
           )}
 

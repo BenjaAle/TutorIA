@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import ModalAnki, { type CartaAnki } from "../components/ModalAnki";
 import KindleSelection from "../components/KindleSelection";
-import ShadowingCard from "../components/ShadowingCard";
+import ShadowingCard, { getScoreBadgeClasses } from "../components/ShadowingCard";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -47,6 +47,7 @@ interface LineaHistoria {
   ipa: string;
   es: string;
   audio: string;
+  mejor_score?: number | null;
 }
 
 type Mode = "completo" | "lectura" | "escucha";
@@ -275,6 +276,18 @@ export default function HistoriasPage() {
       setIsPlaying(false);
     }
     setShadowingIndex(index);
+  };
+
+  const handleScoreActualizado = (lineaIndex: number, nuevoScore: number) => {
+    setLineas((prev) =>
+      prev.map((linea, idx) => {
+        if (idx === lineaIndex) {
+          const actual = linea.mejor_score ?? 0;
+          return { ...linea, mejor_score: Math.max(actual, nuevoScore) };
+        }
+        return linea;
+      })
+    );
   };
 
   useLayoutEffect(() => {
@@ -713,8 +726,20 @@ export default function HistoriasPage() {
                             </span>
                           </div>
 
-                          {/* Botón de Shadowing en la línea */}
-                          <div className="absolute right-2 top-3 z-10 opacity-70 sm:opacity-0 sm:group-hover/line:opacity-100 transition-opacity">
+                          {/* Acciones y Score de Shadowing en la línea */}
+                          <div className="absolute right-2 top-3 z-10 flex items-center gap-1.5">
+                            {s.mejor_score !== undefined && s.mejor_score !== null && (
+                              <span
+                                className={cn(
+                                  "inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-mono font-bold border shadow-2xs",
+                                  getScoreBadgeClasses(s.mejor_score)
+                                )}
+                                title={`Tu mejor puntuación de pronunciación: ${s.mejor_score}%`}
+                              >
+                                {s.mejor_score}%
+                              </span>
+                            )}
+
                             <button
                               type="button"
                               onMouseDown={(e) => e.stopPropagation()}
@@ -722,7 +747,7 @@ export default function HistoriasPage() {
                                 e.stopPropagation();
                                 abrirShadowing(i);
                               }}
-                              className="inline-flex items-center gap-1 rounded-lg border border-border/70 bg-card/90 px-2 py-1 text-[11px] font-medium text-muted-foreground hover:border-primary/50 hover:bg-primary hover:text-primary-foreground transition-all shadow-xs backdrop-blur-xs"
+                              className="inline-flex items-center gap-1 rounded-lg border border-border/70 bg-card/90 px-2 py-1 text-[11px] font-medium text-muted-foreground hover:border-primary/50 hover:bg-primary hover:text-primary-foreground transition-all shadow-xs backdrop-blur-xs opacity-70 sm:opacity-0 sm:group-hover/line:opacity-100 transition-opacity"
                               title="Practicar pronunciación con Shadowing"
                             >
                               <Mic className="size-3" />
@@ -865,6 +890,7 @@ export default function HistoriasPage() {
                   es: lineas[shadowingIndex].es,
                   ipa: lineas[shadowingIndex].ipa,
                   audio: lineas[shadowingIndex].audio,
+                  mejor_score: lineas[shadowingIndex].mejor_score,
                   origen: "Historia",
                   contexto: historiaTitulo,
                 }}
@@ -882,6 +908,9 @@ export default function HistoriasPage() {
                 }
                 puedeAvanzar={shadowingIndex < lineas.length - 1}
                 puedeRetroceder={shadowingIndex > 0}
+                onScoreActualizado={(_, score) =>
+                  handleScoreActualizado(shadowingIndex, score)
+                }
               />
             )}
           </div>

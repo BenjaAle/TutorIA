@@ -524,6 +524,7 @@ async def evaluar_shadowing(
     audio: UploadFile = File(...),
     frase_objetivo: str = Form(...),
     ipa_objetivo: str = Form(""),
+    item_id: str = Form(""),
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -650,19 +651,97 @@ async def evaluar_shadowing(
         detalles["ruta_audio_usuario"] = ruta_relativa_audio
         detalles["frase_objetivo"] = frase_limpia
 
-        # Actualizar mejor_score en la BD si la frase está guardada
+        # Actualizar mejor_score en la BD (para Frases IA, Líneas de Historia o Cloze)
+        score_val = int(detalles.get("overall_score", 0))
+        mejor_score_registrado = score_val
+
         try:
-            stmt = select(FraseShadowingDB).where(
-                FraseShadowingDB.user_id == user_id,
-                FraseShadowingDB.en == frase_limpia,
-            )
-            frase_db = db.scalar(stmt)
-            if frase_db:
-                score_val = int(detalles.get("overall_score", 0))
-                if frase_db.mejor_score is None or score_val > frase_db.mejor_score:
-                    frase_db.mejor_score = score_val
-                    db.commit()
-                detalles["mejor_score"] = frase_db.mejor_score
+            # 1. Si el item_id identifica una línea de historia (ej. "hist_123")
+            if item_id.startswith("hist_"):
+                linea_id = int(item_id.split("_")[1])
+                conn = sqlite3.connect("tutor.db")
+                c = conn.cursor()
+                c.execute(
+                    "SELECT mejor_score FROM lineas_historia WHERE id = ?",
+                    (linea_id,),
+                )
+                row = c.fetchone()
+                if row:
+                    prev = row[0]
+                    if prev is None or score_val > prev:
+                        c.execute(
+                            "UPDATE lineas_historia SET mejor_score = ? WHERE id = ?",
+                            (score_val, linea_id),
+                        )
+                        conn.commit()
+                        mejor_score_registrado = score_val
+                    else:
+                        mejor_score_registrado = prev
+                conn.close()
+
+            # 2. Si el item_id identifica una carta cloze (ej. "cloze_45")
+            elif item_id.startswith("cloze_"):
+                cloze_id = int(item_id.split("_")[1])
+                cloze_db = db.get(OracionCloze, cloze_id)
+                if cloze_db and cloze_db.user_id == user_id:
+                    if cloze_db.mejor_score is None or score_val > cloze_db.mejor_score:
+                        cloze_db.mejor_score = score_val
+                        db.commit()
+                        mejor_score_registrado = score_val
+                    else:
+                        mejor_score_registrado = cloze_db.mejor_score
+
+            # 3. Frases IA (por id numérico o por coincidencia de texto en frases_shadowing)
+            else:
+                stmt = None
+                if item_id.isdigit():
+                    stmt = select(FraseShadowingDB).where(
+                        FraseShadowingDB.id == int(item_id),
+                        FraseShadowingDB.user_id == user_id,
+                    )
+                else:
+                    stmt = select(FraseShadowingDB).where(
+                        FraseShadowingDB.user_id == user_id,
+                        FraseShadowingDB.en == frase_limpia,
+                    )
+                frase_db = db.scalar(stmt)
+                if frase_db:
+                    if frase_db.mejor_score is None or score_val > frase_db.mejor_score:
+                        frase_db.mejor_score = score_val
+                        db.commit()
+                        mejor_score_registrado = score_val
+                    else:
+                        mejor_score_registrado = frase_db.mejor_score
+                else:
+                    # Fallback: intentar ver si coincide con alguna línea de historia del usuario por texto
+                    conn = sqlite3.connect("tutor.db")
+                    c = conn.cursor()
+                    c.execute(
+                        """
+                        SELECT lh.id, lh.mejor_score
+                        FROM lineas_historia lh
+                        JOIN historias h ON lh.historia_id = h.id
+                        WHERE (h.user_id = ? OR h.user_id = 'migrado')
+                          AND TRIM(LOWER(lh.oracion_en)) = TRIM(LOWER(?))
+                        LIMIT 1
+                        """,
+                        (user_id, frase_limpia),
+                    )
+                    row = c.fetchone()
+                    if row:
+                        lh_id, prev = row
+                        if prev is None or score_val > prev:
+                            c.execute(
+                                "UPDATE lineas_historia SET mejor_score = ? WHERE id = ?",
+                                (score_val, lh_id),
+                            )
+                            conn.commit()
+                            mejor_score_registrado = score_val
+                        else:
+                            mejor_score_registrado = prev
+                    conn.close()
+
+            detalles["mejor_score"] = mejor_score_registrado
         except Exception:
             pass
 
@@ -701,7 +780,7 @@ def obtener_frases_estudiadas(
         c = conn.cursor()
         c.execute(
             """
-            SELECT lh.id, lh.oracion_en, lh.oracion_es, lh.oracion_ipa, lh.ruta_audio, h.titulo
+            SELECT lh.id, lh.oracion_en, lh.oracion_es, lh.oracion_ipa, lh.ruta_audio, h.titulo, lh.mejor_score
             FROM lineas_historia lh
             JOIN historias h ON lh.historia_id = h.id
             WHERE (h.user_id = ? OR h.user_id = 'migrado')
@@ -737,6 +816,7 @@ def obtener_frases_estudiadas(
                         "audio": ruta_audio,
                         "origen": "Historia",
                         "contexto": f[5],
+                        "mejor_score": f[6],
                     }
                 )
 
@@ -761,6 +841,7 @@ def obtener_frases_estudiadas(
                         "audio": "",  # Se sintetiza bajo demanda
                         "origen": "Anki / Cloze",
                         "contexto": "Vocabulario Estudiado",
+                        "mejor_score": cz.mejor_score,
                     }
                 )
 

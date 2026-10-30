@@ -141,7 +141,7 @@ def obtener_detalles_historia(
         raise HTTPException(status_code=403, detail="Acceso denegado")
 
     c.execute(
-        "SELECT id, orden, oracion_en, oracion_es, ruta_audio, oracion_ipa FROM lineas_historia WHERE historia_id = ? ORDER BY orden ASC",
+        "SELECT id, orden, oracion_en, oracion_es, ruta_audio, oracion_ipa, mejor_score FROM lineas_historia WHERE historia_id = ? ORDER BY orden ASC",
         (historia_id,),
     )
     # Agregar el "/" al inicio de la ruta del audio para que el HTML lo encuentre bien
@@ -153,6 +153,7 @@ def obtener_detalles_historia(
             "es": row[3],
             "audio": f"/{row[4]}",
             "ipa": row[5],
+            "mejor_score": row[6],
         }
         for row in c.fetchall()
     ]
