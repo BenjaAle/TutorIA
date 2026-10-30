@@ -4,8 +4,12 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Image as ImageIcon,
+  ImageOff,
+  Loader2,
   Puzzle,
   RotateCcw,
+  Search,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +31,8 @@ export interface CartaAnki {
   ejemplo_ingles: string;
   ejemplo_espanol: string;
   termino_imagen: string;
+  url_imagen?: string;
+  sin_imagen?: boolean;
   categoria: string;
   observacion?: string;
   incluir_cloze?: boolean;
@@ -106,6 +112,15 @@ const CATEGORIAS_VALIDAS = [
   "Otros",
 ];
 
+interface PexelsFoto {
+  id: number;
+  preview: string;
+  medium: string;
+  large: string;
+  alt: string;
+  photographer?: string;
+}
+
 export default function ModalAnki({
   isOpen,
   onClose,
@@ -125,6 +140,12 @@ export default function ModalAnki({
     mensaje: string;
   } | null>(null);
 
+  // Cache y estado de búsqueda de imágenes Pexels
+  const [pexelsCache, setPexelsCache] = useState<Record<string, PexelsFoto[]>>(
+    {},
+  );
+  const [buscandoFotos, setBuscandoFotos] = useState(false);
+
   // Cuando se abre el modal o cambian las cartas iniciales, cargamos esas cartas al estado
   useEffect(() => {
     setCartas(
@@ -136,6 +157,8 @@ export default function ModalAnki({
         incluir_cloze: c.incluir_cloze ?? false,
         ejemplos_cloze: c.ejemplos_cloze ?? [],
         nivel_cefr: c.nivel_cefr || "B1",
+        sin_imagen: c.sin_imagen ?? false,
+        url_imagen: c.url_imagen || "",
       })),
     );
     setCurrentIndex(0);
@@ -150,6 +173,91 @@ export default function ModalAnki({
       ),
     );
   };
+
+  const currentTermino = cartas[currentIndex]?.termino_imagen?.trim() || "";
+  const currentSinImagen = Boolean(cartas[currentIndex]?.sin_imagen);
+  const currentCacheKey = currentTermino.toLowerCase();
+  const fotosDisponibles = pexelsCache[currentCacheKey] || [];
+
+  const buscarFotosPexels = async (termino: string, forzar = false) => {
+    const query = (termino || "").trim();
+    if (!query) return;
+
+    const cacheKey = query.toLowerCase();
+    if (!forzar && pexelsCache[cacheKey]) {
+      const cached = pexelsCache[cacheKey];
+      if (cached.length > 0) {
+        setCartas((prev) =>
+          prev.map((c, idx) =>
+            idx === currentIndex && !c.url_imagen && !c.sin_imagen
+              ? { ...c, url_imagen: cached[0].medium }
+              : c,
+          ),
+        );
+      }
+      return;
+    }
+
+    setBuscandoFotos(true);
+    try {
+      const res = await fetch(
+        `/api/pexels/buscar?query=${encodeURIComponent(query)}&per_page=8`,
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const fotos: PexelsFoto[] = data.fotos || [];
+        setPexelsCache((prev) => ({ ...prev, [cacheKey]: fotos }));
+
+        if (fotos.length > 0) {
+          setCartas((prev) =>
+            prev.map((c, idx) => {
+              if (idx === currentIndex) {
+                return {
+                  ...c,
+                  url_imagen: fotos[0].medium,
+                  sin_imagen: false,
+                };
+              }
+              return c;
+            }),
+          );
+          setImageError(null);
+        }
+      }
+    } catch (err) {
+      console.error("Error buscando fotos en Pexels:", err);
+    } finally {
+      setBuscandoFotos(false);
+    }
+  };
+
+  // Buscar fotos automáticamente al cambiar de carta o cuando cambia el término
+  useEffect(() => {
+    if (!isOpen || !currentTermino || currentSinImagen) return;
+
+    const cacheKey = currentTermino.toLowerCase();
+    if (pexelsCache[cacheKey]) {
+      if (
+        !cartas[currentIndex]?.url_imagen &&
+        pexelsCache[cacheKey].length > 0
+      ) {
+        setCartas((prev) =>
+          prev.map((c, idx) =>
+            idx === currentIndex
+              ? { ...c, url_imagen: pexelsCache[cacheKey][0].medium }
+              : c,
+          ),
+        );
+      }
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      buscarFotosPexels(currentTermino);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [currentIndex, currentTermino, currentSinImagen, isOpen]);
 
   const handleExampleChange = (
     exampleIndex: number,
@@ -408,9 +516,29 @@ export default function ModalAnki({
 
                 {/* Reverso */}
                 <div className="py-2">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block mb-1">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block mb-2">
                     Reverso
                   </span>
+
+                  {/* Previsualización de Imagen Pexels */}
+                  {!card?.sin_imagen && (
+                    card?.url_imagen ? (
+                      <div className="mb-3 overflow-hidden rounded-lg border border-border shadow-2xs max-h-44 bg-muted/20 flex items-center justify-center">
+                        <img
+                          src={card.url_imagen}
+                          alt={card.termino_imagen || "Imagen Pexels"}
+                          className="w-full h-36 sm:h-40 object-cover"
+                          loading="lazy"
+                        />
+                      </div>
+                    ) : buscandoFotos ? (
+                      <div className="mb-3 h-32 rounded-lg border border-dashed border-border/80 flex flex-col items-center justify-center text-xs text-muted-foreground gap-1.5 bg-muted/20 animate-pulse">
+                        <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                        <span>Buscando imagen en Pexels...</span>
+                      </div>
+                    ) : null
+                  )}
+
                   <p className="font-sans text-sm font-semibold text-foreground/90 leading-relaxed whitespace-pre-wrap">
                     {card?.reverso?.replace(/<br\s*\/?>/gi, "\n") || "Definición"}
                   </p>
@@ -636,30 +764,7 @@ export default function ModalAnki({
               />
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="anki-pexels">Imagen Pexels</Label>
-                  {imageError && imageError.index === currentIndex && (
-                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                      ⚠️ No encontrada
-                    </span>
-                  )}
-                </div>
-                <Input
-                  id="anki-pexels"
-                  value={card?.termino_imagen || ""}
-                  onChange={(e) =>
-                    handleFieldChange("termino_imagen", e.target.value)
-                  }
-                  className={cn(
-                    imageError &&
-                      imageError.index === currentIndex &&
-                      "border-amber-500 focus-visible:ring-amber-500 bg-amber-500/10",
-                  )}
-                  placeholder="ej. apple, sunset..."
-                />
-              </div>
+            <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <Label htmlFor="anki-category">Categoría</Label>
                 <Select
@@ -692,6 +797,177 @@ export default function ModalAnki({
                   ))}
                 </Select>
               </div>
+            </div>
+
+            {/* Selector e Imagen Pexels */}
+            <div className="rounded-lg border border-border p-3.5 bg-muted/20 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <ImageIcon className="size-3.5 text-primary" />
+                  <Label
+                    htmlFor="anki-pexels"
+                    className="text-xs font-semibold mb-0 cursor-pointer"
+                  >
+                    Imagen de Pexels
+                  </Label>
+                  {imageError && imageError.index === currentIndex && (
+                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                      ⚠️ No encontrada
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nuevoSinImg = !card?.sin_imagen;
+                    handleFieldChange("sin_imagen", nuevoSinImg);
+                    if (
+                      !nuevoSinImg &&
+                      !card?.url_imagen &&
+                      fotosDisponibles.length > 0
+                    ) {
+                      handleFieldChange(
+                        "url_imagen",
+                        fotosDisponibles[0].medium,
+                      );
+                    }
+                  }}
+                  className={cn(
+                    "text-[11px] font-medium px-2 py-0.5 rounded border transition-colors flex items-center gap-1 cursor-pointer",
+                    card?.sin_imagen
+                      ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30"
+                      : "bg-background text-muted-foreground hover:text-foreground border-border hover:bg-muted",
+                  )}
+                >
+                  {card?.sin_imagen ? (
+                    <>
+                      <ImageOff className="size-3" />
+                      Omitida (Sin imagen)
+                    </>
+                  ) : (
+                    <>
+                      <ImageOff className="size-3" />
+                      Quitar imagen
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="flex gap-2">
+                <Input
+                  id="anki-pexels"
+                  value={card?.termino_imagen || ""}
+                  onChange={(e) => {
+                    handleFieldChange("termino_imagen", e.target.value);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      buscarFotosPexels(card?.termino_imagen || "", true);
+                    }
+                  }}
+                  disabled={Boolean(card?.sin_imagen)}
+                  placeholder="Buscar en inglés (ej. apple, sunset, dog)..."
+                  className={cn(
+                    "h-8 text-xs flex-1",
+                    imageError &&
+                      imageError.index === currentIndex &&
+                      "border-amber-500 focus-visible:ring-amber-500 bg-amber-500/10",
+                  )}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={
+                    Boolean(card?.sin_imagen) ||
+                    buscandoFotos ||
+                    !card?.termino_imagen?.trim()
+                  }
+                  onClick={() =>
+                    buscarFotosPexels(card?.termino_imagen || "", true)
+                  }
+                  className="h-8 px-2.5 text-xs shrink-0 cursor-pointer"
+                  title="Buscar en Pexels"
+                >
+                  {buscandoFotos ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Search className="size-3.5 mr-1" />
+                  )}
+                  Buscar
+                </Button>
+              </div>
+
+              {/* Miniaturas de selección */}
+              {!card?.sin_imagen && (
+                <div className="pt-0.5">
+                  {buscandoFotos ? (
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 pt-1">
+                      {[1, 2, 3, 4, 5, 6].map((n) => (
+                        <div
+                          key={n}
+                          className="aspect-4/3 rounded-md bg-muted animate-pulse border border-border/60"
+                        />
+                      ))}
+                    </div>
+                  ) : fotosDisponibles.length > 0 ? (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                        <span>Elige una foto para tu carta:</span>
+                        <span className="font-medium text-foreground/70">
+                          {fotosDisponibles.length} encontradas
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                        {fotosDisponibles.slice(0, 6).map((foto) => {
+                          const estaSeleccionada =
+                            card?.url_imagen === foto.medium ||
+                            (!card?.url_imagen &&
+                              fotosDisponibles[0]?.medium === foto.medium);
+
+                          return (
+                            <button
+                              key={foto.id}
+                              type="button"
+                              onClick={() => {
+                                handleFieldChange("url_imagen", foto.medium);
+                                handleFieldChange("sin_imagen", false);
+                                setImageError(null);
+                              }}
+                              className={cn(
+                                "group relative aspect-4/3 rounded-md overflow-hidden border transition-all cursor-pointer text-left focus:outline-hidden",
+                                estaSeleccionada
+                                  ? "ring-2 ring-primary border-primary shadow-xs"
+                                  : "border-border hover:border-primary/50 opacity-70 hover:opacity-100",
+                              )}
+                              title={foto.alt || "Seleccionar imagen"}
+                            >
+                              <img
+                                src={foto.preview || foto.medium}
+                                alt={foto.alt}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                              {estaSeleccionada && (
+                                <div className="absolute top-1 right-1 bg-primary text-primary-foreground rounded-full p-0.5 shadow-xs">
+                                  <Check className="size-2.5 stroke-[3]" />
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : card?.termino_imagen?.trim() ? (
+                    <p className="text-[11px] text-muted-foreground py-1 text-center italic">
+                      No se encontraron fotos para "{card.termino_imagen}".
+                      Prueba con otra palabra clave en inglés.
+                    </p>
+                  ) : null}
+                </div>
+              )}
             </div>
           </div>
         </div>

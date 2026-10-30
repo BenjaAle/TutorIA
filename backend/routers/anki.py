@@ -208,6 +208,46 @@ def proponer_cartas(req: ExtraerRequest, user_id: str = Depends(get_current_user
         return {"error": f"Error al generar propuestas: {str(e)}"}
 
 
+@router.get("/api/pexels/buscar")
+def buscar_imagenes_pexels(
+    query: str,
+    per_page: int = 8,
+    user_id: str = Depends(get_current_user),
+):
+    """Busca imágenes en Pexels para previsualización y selección en el modal de Anki."""
+    termino = (query or "").strip()
+    if not termino:
+        return {"fotos": []}
+
+    if not api_key_pexels:
+        return {"fotos": [], "error": "API Key de Pexels no configurada"}
+
+    try:
+        url = f"https://api.pexels.com/v1/search?query={requests.utils.quote(termino)}&per_page={max(1, min(per_page, 15))}"
+        resp = requests.get(
+            url, headers={"Authorization": api_key_pexels}, timeout=6
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            fotos = []
+            for p in data.get("photos", []):
+                fotos.append(
+                    {
+                        "id": p.get("id"),
+                        "preview": p.get("src", {}).get("tiny")
+                        or p.get("src", {}).get("small"),
+                        "medium": p.get("src", {}).get("medium"),
+                        "large": p.get("src", {}).get("large"),
+                        "alt": p.get("alt", "") or termino,
+                        "photographer": p.get("photographer", ""),
+                    }
+                )
+            return {"fotos": fotos}
+        return {"fotos": [], "error": f"Pexels respondió con status {resp.status_code}"}
+    except Exception as e:
+        return {"fotos": [], "error": f"Error buscando imágenes: {str(e)}"}
+
+
 @router.post("/inyectar_cartas")
 async def inyectar_cartas(
     req: InyectarRequest, user_id: str = Depends(get_current_user)
@@ -224,39 +264,50 @@ async def inyectar_cartas(
         for i, carta in enumerate(req.cartas):
             texto_frente = str(carta.get("frente", "")).strip()
             termino_imagen = str(carta.get("termino_imagen", "")).strip()
+            url_imagen = str(carta.get("url_imagen", "")).strip()
+            sin_imagen = bool(carta.get("sin_imagen", False))
             nombre_limpio = "".join(
                 c if c.isalnum() else "_" for c in texto_frente[:15]
             )
 
-            # Si la carta tiene término de imagen y no se especificó omitir imagen
-            if termino_imagen and not carta.get("sin_imagen", False):
+            # Si la carta tiene imagen (URL elegida o término a buscar) y no se marcó sin_imagen
+            if not sin_imagen and (url_imagen or termino_imagen):
                 exito_imagen = False
                 try:
-                    url_busqueda = f"https://api.pexels.com/v1/search?query={termino_imagen}&per_page=1"
-                    respuesta_pexels = requests.get(
-                        url_busqueda,
-                        headers={"Authorization": api_key_pexels},
-                        timeout=5,
-                    )
-                    if respuesta_pexels.status_code == 200:
-                        datos_pexels = respuesta_pexels.json()
-                        photos = datos_pexels.get("photos", [])
-                        if photos and len(photos) > 0:
-                            url_imagen = photos[0]["src"]["medium"]
-                            res_img = requests.get(url_imagen, timeout=5)
-                            if res_img.status_code == 200 and len(res_img.content) > 0:
-                                nombre_archivo_img = f"ia_img_{nombre_limpio}_{i}.jpg"
-                                imagenes_descargadas[i] = (nombre_archivo_img, res_img.content)
-                                exito_imagen = True
+                    # 1. Si el usuario ya eligió una foto con url_imagen directa:
+                    if url_imagen:
+                        res_img = requests.get(url_imagen, timeout=6)
+                        if res_img.status_code == 200 and len(res_img.content) > 0:
+                            nombre_archivo_img = f"ia_img_{nombre_limpio}_{i}.jpg"
+                            imagenes_descargadas[i] = (nombre_archivo_img, res_img.content)
+                            exito_imagen = True
+                    # 2. Si no tiene url_imagen directa, buscar con Pexels usando termino_imagen:
+                    elif termino_imagen:
+                        url_busqueda = f"https://api.pexels.com/v1/search?query={requests.utils.quote(termino_imagen)}&per_page=1"
+                        respuesta_pexels = requests.get(
+                            url_busqueda,
+                            headers={"Authorization": api_key_pexels},
+                            timeout=5,
+                        )
+                        if respuesta_pexels.status_code == 200:
+                            datos_pexels = respuesta_pexels.json()
+                            photos = datos_pexels.get("photos", [])
+                            if photos and len(photos) > 0:
+                                url_img_pex = photos[0]["src"]["medium"]
+                                res_img = requests.get(url_img_pex, timeout=5)
+                                if res_img.status_code == 200 and len(res_img.content) > 0:
+                                    nombre_archivo_img = f"ia_img_{nombre_limpio}_{i}.jpg"
+                                    imagenes_descargadas[i] = (nombre_archivo_img, res_img.content)
+                                    exito_imagen = True
                 except Exception as e_img:
-                    print(f"Error descargando imagen para '{termino_imagen}': {e_img}")
+                    print(f"Error descargando imagen para '{termino_imagen or url_imagen}': {e_img}")
 
                 # Si falló la imagen y NO se forzó inyectar sin imagen:
                 if not exito_imagen and not req.forzar_sin_imagen:
                     return {
                         "error": "IMAGEN_FALLIDA",
                         "codigo": "IMAGEN_FALLIDA",
-                        "mensaje": f"No se pudo encontrar o descargar una imagen para el término '{termino_imagen}'.",
+                        "mensaje": f"No se pudo encontrar o descargar una imagen para '{termino_imagen or 'esta carta'}'.",
                         "carta_index": i,
                         "termino_imagen": termino_imagen,
                         "palabra": texto_frente,
@@ -726,31 +777,39 @@ async def exportar_apkg(
                 )
 
             # 1. IMAGEN DE PEXELS (Modificada para guardar en lugar de AnkiConnect)
-            if termino_imagen:
+            sin_imagen = bool(carta.get("sin_imagen", False))
+            url_imagen = str(carta.get("url_imagen", "")).strip()
+            if not sin_imagen and (url_imagen or termino_imagen):
                 try:
-                    url_busqueda = f"https://api.pexels.com/v1/search?query={termino_imagen}&per_page=1"
-                    respuesta_pexels = requests.get(
-                        url_busqueda,
-                        headers={"Authorization": api_key_pexels},
-                        timeout=5,
-                    )
-                    if respuesta_pexels.status_code == 200:
-                        datos_pexels = respuesta_pexels.json()
-                        if datos_pexels.get("photos"):
-                            url_imagen = datos_pexels["photos"][0]["src"]["medium"]
-                            img_data = requests.get(url_imagen, timeout=5).content
-                            nombre_archivo_img = f"ia_img_{nombre_limpio}_{i}.jpg"
+                    img_data = None
+                    if url_imagen:
+                        r_img = requests.get(url_imagen, timeout=6)
+                        if r_img.status_code == 200 and len(r_img.content) > 0:
+                            img_data = r_img.content
+                    elif termino_imagen:
+                        url_busqueda = f"https://api.pexels.com/v1/search?query={requests.utils.quote(termino_imagen)}&per_page=1"
+                        respuesta_pexels = requests.get(
+                            url_busqueda,
+                            headers={"Authorization": api_key_pexels},
+                            timeout=5,
+                        )
+                        if respuesta_pexels.status_code == 200:
+                            datos_pexels = respuesta_pexels.json()
+                            if datos_pexels.get("photos"):
+                                url_pex = datos_pexels["photos"][0]["src"]["medium"]
+                                r_pex = requests.get(url_pex, timeout=5)
+                                if r_pex.status_code == 200:
+                                    img_data = r_pex.content
 
-                            # Escribir a disco en lugar de AnkiConnect
-                            with open(nombre_archivo_img, "wb") as img_file:
-                                img_file.write(img_data)
-
-                            archivos_generados.append(nombre_archivo_img)
-
-                            texto_reverso_final = (
-                                f"<img src='{nombre_archivo_img}'><br><br>"
-                                + texto_reverso_final
-                            )
+                    if img_data:
+                        nombre_archivo_img = f"ia_img_{nombre_limpio}_{i}.jpg"
+                        with open(nombre_archivo_img, "wb") as img_file:
+                            img_file.write(img_data)
+                        archivos_generados.append(nombre_archivo_img)
+                        texto_reverso_final = (
+                            f"<img src='{nombre_archivo_img}'><br><br>"
+                            + texto_reverso_final
+                        )
                 except Exception as e:
                     pass
 
