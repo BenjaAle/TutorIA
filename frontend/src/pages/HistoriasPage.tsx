@@ -85,7 +85,7 @@ export default function HistoriasPage() {
   const [lineas, setLineas] = useState<LineaHistoria[]>([]);
   const [modo, setModo] = useState<Mode>("completo");
   const [indiceAudio, setIndiceAudio] = useState(-1);
-  const [velocidad, setVelocidad] = useState(1.5);
+  const [velocidad, setVelocidad] = useState(1.25);
   const [isPlaying, setIsPlaying] = useState(false);
   const [shadowingIndex, setShadowingIndex] = useState<number | null>(null);
 
