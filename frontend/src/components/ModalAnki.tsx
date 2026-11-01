@@ -25,11 +25,19 @@ import {
 import { Input, Label, Select, Textarea } from "@/components/field";
 import { cn } from "@/lib/utils";
 
+export interface EjemploCarta {
+  en: string;
+  es: string;
+  palabra_oculta?: string;
+}
+
 export interface CartaAnki {
   frente: string;
   reverso: string;
-  ejemplo_ingles: string;
-  ejemplo_espanol: string;
+  palabra_clave?: string;
+  ejemplos?: EjemploCarta[];
+  ejemplo_ingles?: string;
+  ejemplo_espanol?: string;
   termino_imagen: string;
   url_imagen?: string;
   sin_imagen?: boolean;
@@ -38,6 +46,30 @@ export interface CartaAnki {
   incluir_cloze?: boolean;
   ejemplos_cloze?: boolean[];
   nivel_cefr?: "A1" | "A2" | "B1" | "B2" | "C1" | "C2" | string;
+}
+
+export function normalizarEjemplos(c: Partial<CartaAnki>): EjemploCarta[] {
+  if (Array.isArray(c.ejemplos) && c.ejemplos.length > 0) {
+    return c.ejemplos.map((ex) => ({
+      en: ex.en || "",
+      es: (ex.es || "").replace(/\[|\]/g, ""),
+      palabra_oculta: ex.palabra_oculta || "",
+    }));
+  }
+  const enList = (c.ejemplo_ingles || "")
+    .split("|")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const esList = (c.ejemplo_espanol || "")
+    .split("|")
+    .map((s) => s.trim().replace(/\[|\]/g, ""));
+  const count = Math.max(enList.length, esList.length);
+  if (count === 0) return [{ en: "", es: "", palabra_oculta: "" }];
+  return Array.from({ length: count }).map((_, idx) => ({
+    en: enList[idx] || "",
+    es: esList[idx] || "",
+    palabra_oculta: "",
+  }));
 }
 
 export const NIVELES_CEFR = [
@@ -149,22 +181,27 @@ export default function ModalAnki({
   // Cuando se abre el modal o cambian las cartas iniciales, cargamos esas cartas al estado
   useEffect(() => {
     setCartas(
-      cartasIniciales.map((c) => ({
-        ...c,
-        reverso: (c.reverso || "").replace(/<br\s*\/?>/gi, "\n"),
-        observacion: (c.observacion || "").replace(/<br\s*\/?>/gi, "\n"),
-        ejemplo_espanol: (c.ejemplo_espanol || "").replace(/\[|\]/g, ""),
-        incluir_cloze: c.incluir_cloze ?? false,
-        ejemplos_cloze:
-          c.ejemplos_cloze && c.ejemplos_cloze.length > 0
-            ? c.ejemplos_cloze
-            : origen === "historia"
-              ? [true]
-              : [],
-        nivel_cefr: c.nivel_cefr || "B1",
-        sin_imagen: c.sin_imagen ?? false,
-        url_imagen: c.url_imagen || "",
-      })),
+      cartasIniciales.map((c) => {
+        const ejemplosNorm = normalizarEjemplos(c);
+        return {
+          ...c,
+          ejemplos: ejemplosNorm,
+          ejemplo_ingles: ejemplosNorm.map((e) => e.en).join(" | "),
+          ejemplo_espanol: ejemplosNorm.map((e) => e.es).join(" | "),
+          reverso: (c.reverso || "").replace(/<br\s*\/?>/gi, "\n"),
+          observacion: (c.observacion || "").replace(/<br\s*\/?>/gi, "\n"),
+          incluir_cloze: c.incluir_cloze ?? false,
+          ejemplos_cloze:
+            c.ejemplos_cloze && c.ejemplos_cloze.length > 0
+              ? c.ejemplos_cloze
+              : origen === "historia"
+                ? [true]
+                : ejemplosNorm.map((e) => Boolean(e.palabra_oculta)),
+          nivel_cefr: c.nivel_cefr || "B1",
+          sin_imagen: c.sin_imagen ?? false,
+          url_imagen: c.url_imagen || "",
+        };
+      }),
     );
     setCurrentIndex(0);
     setSent(false);
@@ -264,20 +301,39 @@ export default function ModalAnki({
     return () => clearTimeout(timer);
   }, [currentIndex, currentTermino, currentSinImagen, isOpen]);
 
-  const handleExampleChange = (
+  const handleExampleFieldChange = (
     exampleIndex: number,
-    lang: "ejemplo_ingles" | "ejemplo_espanol",
+    field: "en" | "es" | "palabra_oculta",
     value: string,
   ) => {
-    const card = cartas[currentIndex];
-    if (!card) return;
-    const examples = (card[lang] || "").split("|").map((s) => s.trim());
+    setCartas((prev) =>
+      prev.map((carta, i) => {
+        if (i !== currentIndex) return carta;
+        const ejemplos = [...(carta.ejemplos || [])];
+        while (ejemplos.length <= exampleIndex) {
+          ejemplos.push({ en: "", es: "", palabra_oculta: "" });
+        }
+        ejemplos[exampleIndex] = {
+          ...ejemplos[exampleIndex],
+          [field]: value,
+        };
 
-    while (examples.length <= exampleIndex) examples.push("");
+        // Si se edita la oración en inglés 'en', extraer palabra_oculta si lleva corchetes [ ]
+        if (field === "en") {
+          const match = value.match(/\[(.*?)\]/);
+          if (match && match[1]) {
+            ejemplos[exampleIndex].palabra_oculta = match[1].trim();
+          }
+        }
 
-    const newExamplesArray = [...examples];
-    newExamplesArray[exampleIndex] = value;
-    handleFieldChange(lang, newExamplesArray.join(" | "));
+        return {
+          ...carta,
+          ejemplos,
+          ejemplo_ingles: ejemplos.map((e) => e.en).join(" | "),
+          ejemplo_espanol: ejemplos.map((e) => e.es).join(" | "),
+        };
+      }),
+    );
   };
 
   const handleExampleClozeToggle = (exampleIndex: number, valor: boolean) => {
@@ -289,11 +345,14 @@ export default function ModalAnki({
     }
     currentCloze[exampleIndex] = valor;
 
+    const ejemplos = [...(card.ejemplos || [])];
+    while (ejemplos.length <= exampleIndex) {
+      ejemplos.push({ en: "", es: "", palabra_oculta: "" });
+    }
+
     // Si el usuario activa Cloze en un ejemplo sin corchetes [ ], intentar envolver automáticamente la palabra clave
-    let nuevosEjemplosEn = card.ejemplo_ingles || "";
     if (valor) {
-      const examples = nuevosEjemplosEn.split("|").map((s) => s.trim());
-      const oracion = examples[exampleIndex] || "";
+      const oracion = ejemplos[exampleIndex]?.en || "";
       if (oracion && !oracion.includes("[") && !oracion.includes("]")) {
         const palabraBase = (card.frente || "")
           .replace(/\(.*?\)/g, "")
@@ -303,8 +362,13 @@ export default function ModalAnki({
           const escaped = palabraBase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
           const regex = new RegExp(`\\b(${escaped}\\w*)\\b`, "i");
           if (regex.test(oracion)) {
-            examples[exampleIndex] = oracion.replace(regex, "[$1]");
-            nuevosEjemplosEn = examples.join(" | ");
+            const nuevaOracion = oracion.replace(regex, "[$1]");
+            const match = nuevaOracion.match(/\[(.*?)\]/);
+            ejemplos[exampleIndex] = {
+              ...ejemplos[exampleIndex],
+              en: nuevaOracion,
+              palabra_oculta: match ? match[1].trim() : palabraBase,
+            };
           }
         }
       }
@@ -315,8 +379,10 @@ export default function ModalAnki({
         i === currentIndex
           ? {
               ...c,
+              ejemplos,
               ejemplos_cloze: currentCloze,
-              ejemplo_ingles: nuevosEjemplosEn,
+              ejemplo_ingles: ejemplos.map((e) => e.en).join(" | "),
+              ejemplo_espanol: ejemplos.map((e) => e.es).join(" | "),
             }
           : c,
       ),
@@ -324,13 +390,45 @@ export default function ModalAnki({
   };
 
   const handleAddExample = () => {
-    const card = cartas[currentIndex];
-    if (!card) return;
-    const currentEn = card.ejemplo_ingles ? card.ejemplo_ingles.trim() : "";
-    const currentEs = card.ejemplo_espanol ? card.ejemplo_espanol.trim() : "";
+    setCartas((prev) =>
+      prev.map((carta, i) => {
+        if (i !== currentIndex) return carta;
+        const ejemplos = [
+          ...(carta.ejemplos || []),
+          { en: "", es: "", palabra_oculta: "" },
+        ];
+        return {
+          ...carta,
+          ejemplos,
+          ejemplo_ingles: ejemplos.map((e) => e.en).join(" | "),
+          ejemplo_espanol: ejemplos.map((e) => e.es).join(" | "),
+        };
+      }),
+    );
+  };
 
-    handleFieldChange("ejemplo_ingles", currentEn ? currentEn + " | " : "");
-    handleFieldChange("ejemplo_espanol", currentEs ? currentEs + " | " : "");
+  const handleRemoveExample = (exampleIndex: number) => {
+    setCartas((prev) =>
+      prev.map((carta, i) => {
+        if (i !== currentIndex) return carta;
+        const ejemplos = (carta.ejemplos || []).filter(
+          (_, idx) => idx !== exampleIndex,
+        );
+        const cloze = (carta.ejemplos_cloze || []).filter(
+          (_, idx) => idx !== exampleIndex,
+        );
+        return {
+          ...carta,
+          ejemplos:
+            ejemplos.length > 0
+              ? ejemplos
+              : [{ en: "", es: "", palabra_oculta: "" }],
+          ejemplos_cloze: cloze,
+          ejemplo_ingles: ejemplos.map((e) => e.en).join(" | "),
+          ejemplo_espanol: ejemplos.map((e) => e.es).join(" | "),
+        };
+      }),
+    );
   };
 
   const handleEliminarCarta = () => {
@@ -583,29 +681,35 @@ export default function ModalAnki({
 
                 {/* Ejemplos si existen */}
                 {(() => {
-                  const enList = (card?.ejemplo_ingles || "")
-                    .split("|")
-                    .map((s) => s.trim())
-                    .filter(Boolean);
-                  const esList = (card?.ejemplo_espanol || "")
-                    .split("|")
-                    .map((s) => s.trim());
+                  const ejemplos =
+                    card?.ejemplos && card.ejemplos.length > 0
+                      ? card.ejemplos
+                      : (card?.ejemplo_ingles || "")
+                          .split("|")
+                          .map((s, idx) => ({
+                            en: s.trim(),
+                            es:
+                              (card?.ejemplo_espanol || "")
+                                .split("|")[idx]
+                                ?.trim() || "",
+                          }))
+                          .filter((e) => e.en);
 
-                  if (enList.length === 0) return null;
+                  if (!ejemplos || ejemplos.length === 0) return null;
 
                   return (
                     <div className="space-y-2 text-left">
-                      {enList.map((en, idx) => (
+                      {ejemplos.map((ex, idx) => (
                         <div
                           key={idx}
                           className="text-xs bg-muted/30 p-2.5 rounded-md border border-border/50 space-y-1"
                         >
                           <p className="font-serif text-foreground italic">
-                            "{en.replace(/\[|\]/g, "").trim()}"
+                            "{ex.en.replace(/\[|\]/g, "").trim()}"
                           </p>
-                          {esList[idx] && (
+                          {ex.es && (
                             <p className="text-muted-foreground font-sans">
-                              {esList[idx].replace(/\[|\]/g, "")}
+                              {ex.es.replace(/\[|\]/g, "")}
                             </p>
                           )}
                         </div>
@@ -709,83 +813,74 @@ export default function ModalAnki({
                 </Button>
               </legend>
               <div className="space-y-4">
-                {(() => {
-                  const englishExamples = (card?.ejemplo_ingles || "")
-                    .split("|")
-                    .map((s) => s.trim());
-                  const spanishExamples = (card?.ejemplo_espanol || "")
-                    .split("|")
-                    .map((s) => s.trim());
-                  const count = Math.max(
-                    englishExamples.length,
-                    spanishExamples.length,
-                    1,
-                  );
-
-                  return Array.from({ length: count }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="grid grid-cols-[1.75rem_1fr] gap-x-2 gap-y-1.5 focus-within:ring-1 ring-border p-2 -mx-2 rounded-md transition-all"
+                {(card?.ejemplos || []).map((ex, i) => (
+                  <div
+                    key={i}
+                    className="grid grid-cols-[1.75rem_1fr] gap-x-2 gap-y-1.5 focus-within:ring-1 ring-border p-2 -mx-2 rounded-md transition-all relative group"
+                  >
+                    <span
+                      className="pt-2 flex justify-center font-serif text-[11px] font-bold text-muted-foreground/50 border-r border-muted pr-1"
+                      title={`Ejemplo ${i + 1}`}
                     >
-                      <span
-                        className="pt-2 flex justify-center font-serif text-[11px] font-bold text-muted-foreground/50 border-r border-muted pr-1"
-                        title={`Ejemplo ${i + 1}`}
-                      >
-                        EN
-                      </span>
-                      <Input
-                        aria-label={`Ejemplo ${i + 1} en inglés`}
-                        value={englishExamples[i] || ""}
-                        placeholder="Ejemplo en inglés..."
-                        className="h-8 shadow-none"
-                        onChange={(e) =>
-                          handleExampleChange(
-                            i,
-                            "ejemplo_ingles",
-                            e.target.value,
-                          )
-                        }
-                      />
-                      <span className="pt-2 flex justify-center font-serif text-[11px] font-bold text-muted-foreground/50 border-r border-muted pr-1">
-                        ES
-                      </span>
-                      <Input
-                        aria-label={`Traducción ${i + 1} en español`}
-                        value={spanishExamples[i] || ""}
-                        placeholder="Traducción en español..."
-                        onChange={(e) =>
-                          handleExampleChange(
-                            i,
-                            "ejemplo_espanol",
-                            e.target.value,
-                          )
-                        }
-                        className="bg-muted/30 text-muted-foreground h-8 shadow-none border-dashed border-t-0 focus-visible:border-solid focus-visible:border-t"
-                      />
-                      <div className="col-span-2 flex items-center justify-between pt-1">
-                        <div>
-                          {Boolean(card?.ejemplos_cloze?.[i]) &&
-                            (() => {
-                              const match = (englishExamples[i] || "").match(
-                                /\[(.*?)\]/,
-                              );
-                              if (match && match[1]) {
-                                return (
-                                  <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                                    <span>Ocultará:</span>
-                                    <span className="font-mono font-bold text-foreground bg-muted px-1.5 py-0.5 rounded border border-border">
-                                      [{match[1]}]
-                                    </span>
-                                  </span>
-                                );
-                              }
+                      EN
+                    </span>
+                    <Input
+                      aria-label={`Ejemplo ${i + 1} en inglés`}
+                      value={ex.en || ""}
+                      placeholder="Ejemplo en inglés (usa [corchetes] para Cloze)..."
+                      className="h-8 shadow-none"
+                      onChange={(e) =>
+                        handleExampleFieldChange(i, "en", e.target.value)
+                      }
+                    />
+                    <span className="pt-2 flex justify-center font-serif text-[11px] font-bold text-muted-foreground/50 border-r border-muted pr-1">
+                      ES
+                    </span>
+                    <Input
+                      aria-label={`Traducción ${i + 1} en español`}
+                      value={ex.es || ""}
+                      placeholder="Traducción en español..."
+                      onChange={(e) =>
+                        handleExampleFieldChange(i, "es", e.target.value)
+                      }
+                      className="bg-muted/30 text-muted-foreground h-8 shadow-none border-dashed border-t-0 focus-visible:border-solid focus-visible:border-t"
+                    />
+                    <div className="col-span-2 flex items-center justify-between pt-1">
+                      <div>
+                        {Boolean(card?.ejemplos_cloze?.[i]) &&
+                          (() => {
+                            const match = (ex.en || "").match(/\[(.*?)\]/);
+                            const palabra =
+                              ex.palabra_oculta || (match && match[1]);
+                            if (palabra) {
                               return (
-                                <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
-                                  ⚠️ Pon [corchetes] a la palabra a ocultar
+                                <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                                  <span>Ocultará:</span>
+                                  <span className="font-mono font-bold text-foreground bg-muted px-1.5 py-0.5 rounded border border-border">
+                                    [{palabra}]
+                                  </span>
                                 </span>
                               );
-                            })()}
-                        </div>
+                            }
+                            return (
+                              <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                                ⚠️ Pon [corchetes] a la palabra a ocultar
+                              </span>
+                            );
+                          })()}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {(card?.ejemplos || []).length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveExample(i)}
+                            className="text-muted-foreground/60 hover:text-destructive text-xs p-1 rounded transition-colors"
+                            title="Eliminar este ejemplo"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        )}
 
                         <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground hover:text-foreground select-none">
                           <input
@@ -803,8 +898,8 @@ export default function ModalAnki({
                         </label>
                       </div>
                     </div>
-                  ));
-                })()}
+                  </div>
+                ))}
               </div>
             </fieldset>
 

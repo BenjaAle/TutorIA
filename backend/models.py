@@ -1,5 +1,53 @@
 # pyrefly: ignore [missing-import]
-from pydantic import BaseModel
+from typing import List, Optional
+from pydantic import BaseModel, Field
+
+
+class EjemploCarta(BaseModel):
+    en: str = Field(description="Oración de ejemplo en inglés")
+    es: str = Field(description="Traducción natural al español de la oración")
+    palabra_oculta: str = Field(
+        default="",
+        description="Palabra, raíz o colocación exacta a ocultar en ejercicios Cloze",
+    )
+
+
+class CartaPropuesta(BaseModel):
+    frente: str = Field(
+        description="Palabra, colocación o expresión principal con pronunciación IPA entre paréntesis"
+    )
+    palabra_clave: str = Field(
+        default="",
+        description="Palabra o lema exacto que el estudiante está aprendiendo",
+    )
+    reverso: str = Field(
+        description="Definición o significado contextual preciso en español"
+    )
+    ejemplos: List[EjemploCarta] = Field(
+        description="Lista de oraciones de ejemplo (mínimo 2), cada una con su traducción correspondiente"
+    )
+    termino_imagen: str = Field(
+        description="Palabra clave visual en inglés para buscar una foto representativa en Pexels"
+    )
+    categoria: str = Field(
+        default="Vocabulario",
+        description="Una de: Vocabulario, Phrasal Verbs, Falsos Amigos, Verbos Irregulares, Gramatica y Teoria, Expresiones Nativas, Colocaciones, Otros",
+    )
+    observacion: str = Field(
+        default="",
+        description="Notas de uso, grado de formalidad o contrastes con términos similares",
+    )
+    nivel_cefr: str = Field(
+        default="B1",
+        description="Nivel de dificultad CEFR: A1, A2, B1, B2, C1 o C2",
+    )
+    # Campos opcionales para retrocompatibilidad
+    ejemplo_ingles: Optional[str] = ""
+    ejemplo_espanol: Optional[str] = ""
+    url_imagen: Optional[str] = ""
+    sin_imagen: bool = False
+    incluir_cloze: bool = False
+    ejemplos_cloze: List[bool] = []
 
 
 class Mensaje(BaseModel):
