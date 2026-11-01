@@ -337,12 +337,20 @@ export default function HistoriasPage() {
   };
 
   // Enviar a Anki (llamado desde el nuevo componente KindleSelection)
-  const abrirAnkiDesdeFloating = async (palabra: string, contexto: string) => {
+  const abrirAnkiDesdeFloating = async (
+    palabra: string,
+    contexto: string,
+    traduccionContexto: string = "",
+  ) => {
     try {
       const res = await fetch("/proponer_carta_unica", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ palabra, contexto }),
+        body: JSON.stringify({
+          palabra,
+          contexto,
+          traduccion_contexto: traduccionContexto,
+        }),
       });
       const data = await res.json();
       if (data.error) alert(data.error);
@@ -669,6 +677,8 @@ export default function HistoriasPage() {
                         <li
                           key={i}
                           id={`linea-${i}`}
+                          data-en={s.en}
+                          data-es={s.es}
                           className="story-line group/line relative"
                         >
                           <div

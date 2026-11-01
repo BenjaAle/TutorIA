@@ -155,7 +155,12 @@ export default function ModalAnki({
         observacion: (c.observacion || "").replace(/<br\s*\/?>/gi, "\n"),
         ejemplo_espanol: (c.ejemplo_espanol || "").replace(/\[|\]/g, ""),
         incluir_cloze: c.incluir_cloze ?? false,
-        ejemplos_cloze: c.ejemplos_cloze ?? [],
+        ejemplos_cloze:
+          c.ejemplos_cloze && c.ejemplos_cloze.length > 0
+            ? c.ejemplos_cloze
+            : origen === "historia"
+              ? [true]
+              : [],
         nivel_cefr: c.nivel_cefr || "B1",
         sin_imagen: c.sin_imagen ?? false,
         url_imagen: c.url_imagen || "",
@@ -164,7 +169,7 @@ export default function ModalAnki({
     setCurrentIndex(0);
     setSent(false);
     setImageError(null);
-  }, [cartasIniciales, isOpen]);
+  }, [cartasIniciales, isOpen, origen]);
 
   const handleFieldChange = (campo: keyof CartaAnki, valor: any) => {
     setCartas((prev) =>
@@ -283,7 +288,39 @@ export default function ModalAnki({
       currentCloze.push(false);
     }
     currentCloze[exampleIndex] = valor;
-    handleFieldChange("ejemplos_cloze", currentCloze);
+
+    // Si el usuario activa Cloze en un ejemplo sin corchetes [ ], intentar envolver automáticamente la palabra clave
+    let nuevosEjemplosEn = card.ejemplo_ingles || "";
+    if (valor) {
+      const examples = nuevosEjemplosEn.split("|").map((s) => s.trim());
+      const oracion = examples[exampleIndex] || "";
+      if (oracion && !oracion.includes("[") && !oracion.includes("]")) {
+        const palabraBase = (card.frente || "")
+          .replace(/\(.*?\)/g, "")
+          .replace(/\*+/g, "")
+          .trim();
+        if (palabraBase) {
+          const escaped = palabraBase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const regex = new RegExp(`\\b(${escaped}\\w*)\\b`, "i");
+          if (regex.test(oracion)) {
+            examples[exampleIndex] = oracion.replace(regex, "[$1]");
+            nuevosEjemplosEn = examples.join(" | ");
+          }
+        }
+      }
+    }
+
+    setCartas((prev) =>
+      prev.map((c, i) =>
+        i === currentIndex
+          ? {
+              ...c,
+              ejemplos_cloze: currentCloze,
+              ejemplo_ingles: nuevosEjemplosEn,
+            }
+          : c,
+      ),
+    );
   };
 
   const handleAddExample = () => {
@@ -725,7 +762,31 @@ export default function ModalAnki({
                         }
                         className="bg-muted/30 text-muted-foreground h-8 shadow-none border-dashed border-t-0 focus-visible:border-solid focus-visible:border-t"
                       />
-                      <div className="col-span-2 flex items-center justify-end pt-1">
+                      <div className="col-span-2 flex items-center justify-between pt-1">
+                        <div>
+                          {Boolean(card?.ejemplos_cloze?.[i]) &&
+                            (() => {
+                              const match = (englishExamples[i] || "").match(
+                                /\[(.*?)\]/,
+                              );
+                              if (match && match[1]) {
+                                return (
+                                  <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                                    <span>Ocultará:</span>
+                                    <span className="font-mono font-bold text-foreground bg-muted px-1.5 py-0.5 rounded border border-border">
+                                      [{match[1]}]
+                                    </span>
+                                  </span>
+                                );
+                              }
+                              return (
+                                <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                                  ⚠️ Pon [corchetes] a la palabra a ocultar
+                                </span>
+                              );
+                            })()}
+                        </div>
+
                         <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground hover:text-foreground select-none">
                           <input
                             type="checkbox"

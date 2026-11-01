@@ -33,6 +33,7 @@ class NuevaHistoria(BaseModel):
 class CartaUnicaRequest(BaseModel):
     palabra: str
     contexto: str
+    traduccion_contexto: str = ""
 
 
 class EntrenamientoPares(BaseModel):

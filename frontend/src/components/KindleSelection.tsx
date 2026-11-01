@@ -4,11 +4,16 @@ import { useState, useEffect } from "react";
 const KindleSelection = ({
   onRequestAnki,
 }: {
-  onRequestAnki: (palabra: string, contexto: string) => void;
+  onRequestAnki: (
+    palabra: string,
+    contexto: string,
+    traduccionContexto?: string,
+  ) => void;
 }) => {
   const [seleccion, setSeleccion] = useState<{
     palabra: string;
     contexto: string;
+    traduccionContexto: string;
     rect: DOMRect;
   } | null>(null);
 
@@ -36,7 +41,11 @@ const KindleSelection = ({
       // Validar que no sea vacío y esté dentro de una línea de cuento
       if (texto.length > 0 && lineaCercana) {
         const contexto =
-          lineaCercana.querySelector(".text-en")?.textContent || "";
+          lineaCercana.getAttribute("data-en") ||
+          lineaCercana.querySelector(".text-en")?.textContent ||
+          "";
+        const traduccionContexto =
+          lineaCercana.getAttribute("data-es") || "";
         const range = selection.getRangeAt(0);
         const rect = range.getBoundingClientRect();
 
@@ -51,7 +60,7 @@ const KindleSelection = ({
           }
         }
 
-        setSeleccion({ palabra: texto, contexto, rect });
+        setSeleccion({ palabra: texto, contexto, traduccionContexto, rect });
       } else {
         setSeleccion(null);
       }
@@ -98,7 +107,11 @@ const KindleSelection = ({
       }}
       onClick={(e) => {
         e.stopPropagation();
-        onRequestAnki(seleccion.palabra, seleccion.contexto);
+        onRequestAnki(
+          seleccion.palabra,
+          seleccion.contexto,
+          seleccion.traduccionContexto,
+        );
         setSeleccion(null);
       }}
     >
