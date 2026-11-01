@@ -35,16 +35,25 @@ function getClozeDetails(
 ): { tokens: Token[]; answerMap: Record<number, string> } {
   if (!frase) return { tokens: [], answerMap: {} };
 
-  // 1. Array de palabras a ocultar
+  // Limpiar cualquier corchete residual de la oración y de la palabra oculta
+  const cleanFrase = frase.replace(/\[|\]/g, "").trim();
+  const rawOculta = (palabra_oculta || "").replace(/\[|\]/g, "").trim();
+
+  // 1. Array de palabras/frases a ocultar
   let wordsToHide: string[] = [];
-  if (palabra_oculta) {
-    wordsToHide = palabra_oculta
-      .split(",")
-      .map((w) => w.trim())
-      .filter(Boolean);
+  if (rawOculta) {
+    if (rawOculta.includes(",")) {
+      wordsToHide = rawOculta
+        .split(",")
+        .map((w) => w.replace(/^[^\w']+|[^\w']+$/g, "").trim())
+        .filter(Boolean);
+    } else {
+      const limpia = rawOculta.replace(/^[^\w']+|[^\w']+$/g, "").trim();
+      if (limpia) wordsToHide = [limpia];
+    }
   }
 
-  // 2. Fallback por si backend omitió
+  // 2. Fallback inteligente si no hay palabra oculta
   if (wordsToHide.length === 0) {
     const preposiciones = [
       "in",
@@ -60,7 +69,7 @@ function getClozeDetails(
       "by",
       "onto",
     ];
-    const palabras = frase.split(" ");
+    const palabras = cleanFrase.split(" ");
     const found = palabras.find((w) =>
       preposiciones.includes(w.toLowerCase().replace(/[^a-z]/g, "")),
     );
@@ -77,9 +86,9 @@ function getClozeDetails(
   wordsToHide = wordsToHide.filter((w) => w.length > 0);
   wordsToHide.sort((a, b) => b.length - a.length);
   if (wordsToHide.length === 0)
-    return { tokens: [{ type: "text", val: frase }], answerMap: {} };
+    return { tokens: [{ type: "text", val: cleanFrase }], answerMap: {} };
 
-  // 3. Crear regex mágico de palabra completa (escapando caracteres especiales para no romper JS)
+  // 3. Crear regex de palabra completa evitando interferencias
   const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const regexPattern = `\\b(${wordsToHide.map(escapeRegex).join("|")})\\b`;
   const regex = new RegExp(regexPattern, "gi");
@@ -90,11 +99,11 @@ function getClozeDetails(
   const tokens: Token[] = [];
   const answerMap: Record<number, string> = {};
 
-  while ((match = regex.exec(frase)) !== null) {
+  while ((match = regex.exec(cleanFrase)) !== null) {
     if (match.index > lastIndex) {
       tokens.push({
         type: "text",
-        val: frase.substring(lastIndex, match.index),
+        val: cleanFrase.substring(lastIndex, match.index),
       });
     }
 
@@ -132,12 +141,12 @@ function getClozeDetails(
     lastIndex = regex.lastIndex;
   }
 
-  if (lastIndex < frase.length) {
-    tokens.push({ type: "text", val: frase.substring(lastIndex) });
+  if (lastIndex < cleanFrase.length) {
+    tokens.push({ type: "text", val: cleanFrase.substring(lastIndex) });
   }
 
   if (tokens.length === 0) {
-    tokens.push({ type: "text", val: frase });
+    tokens.push({ type: "text", val: cleanFrase });
   }
 
   return { tokens, answerMap };

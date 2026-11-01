@@ -4,11 +4,29 @@ from pydantic import BaseModel, Field
 
 
 class EjemploCarta(BaseModel):
-    en: str = Field(description="Oración de ejemplo en inglés")
+    en: str = Field(
+        description="Oración de ejemplo en inglés limpia y natural. PROHIBIDO usar corchetes [ ] o guiones bajos"
+    )
     es: str = Field(description="Traducción natural al español de la oración")
     palabra_oculta: str = Field(
         default="",
         description="Palabra, raíz o colocación exacta a ocultar en ejercicios Cloze",
+    )
+
+
+class OracionClozePropuesta(BaseModel):
+    ingles: str = Field(
+        description="Oración completa en inglés, limpia y natural. PROHIBIDO usar corchetes [ ] o guiones bajos"
+    )
+    espanol: str = Field(
+        description="Traducción natural al español de la oración"
+    )
+    palabra_oculta: str = Field(
+        description="Palabra o colocación exacta de la oración que el estudiante debe completar en el ejercicio"
+    )
+    pista: Optional[str] = Field(
+        default="",
+        description="Pista breve opcional en español sobre el significado o categoría gramatical",
     )
 
 

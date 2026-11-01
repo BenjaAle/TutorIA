@@ -14,6 +14,7 @@ from config import (
 )
 from database import get_db
 from db_models import OracionCloze
+from models import OracionClozePropuesta
 
 router = APIRouter(prefix="/ejercicios", tags=["Ejercicios"])
 
@@ -59,33 +60,34 @@ def generar_cloze_con_ia(
             historial_texto += f"{quien}: {texto}\n\n"
 
         instrucciones = """
-        Eres un creador de ejercicios de inglés que genera oraciones para un minijuego 'Cloze' de rellenar huecos.
-        Analiza este historial reciente de conversación del estudiante (delimitado por <historial>).
-        Genera EXACTAMENTE 5 oraciones muy útiles en inglés basadas en sus errores o usando conectores o preposiciones comunes (in, on, at, to, for, with).
-        REGLA 1: Devuelve ESTRICTAMENTE un arreglo JSON puro. Nada de markdown.
-        REGLA 2: Cada objeto debe tener la oración completa en "ingles", su "espanol", y OBLIGATORIAMENTE la "palabra_oculta" que consideres más desafiante.
-        REGLA 3: PROHIBIDO usar guiones bajos (____) o huecos en la propiedad "ingles". Debe ser una oración en inglés perfectamente estructurada y completa. El programa frontend se encargará visualmente de ocultar la palabra.
-        REGLA 4: Si deseas ocultar más de una palabra (ya sean juntas o separadas en la oración), sepáralas por coma en "palabra_oculta".
-        Formato esperado:
-        [
-          {
-            "ingles": "She is interested in learning French.",
-            "espanol": "Ella está interesada en aprender francés.",
-            "palabra_oculta": "interested, in"
-          }
-        ]
+        Eres un experto profesor de inglés creador de ejercicios pedagógicos para un minijuego 'Cloze' (rellenar huecos).
+        Analiza el historial reciente de conversación del estudiante (delimitado por <historial>) para detectar vocabulario clave, errores comunes o estructuras formativas útiles (preposiciones, phrasal verbs, colocaciones).
+        Genera EXACTAMENTE 5 oraciones útiles, prácticas y naturales en inglés.
+
+        REGLA 1 (ESTÁNDAR ESTRICTO SIN CORCHETES):
+        - En "ingles": Escribe la oración completa en inglés, limpia, perfectamente estructurada y 100% natural.
+        - ESTRICTAMENTE PROHIBIDO usar corchetes [ ], paréntesis de ocultar o guiones bajos (____) en "ingles". El texto debe ser inglés puro.
+
+        REGLA 2 (PALABRA OCULTA):
+        - En "palabra_oculta": Escribe la palabra exacta, phrasal verb o colocación clave que se encuentra dentro de la oración y que el estudiante debe completar.
+        - La "palabra_oculta" DEBE existir textualmente dentro de la oración "ingles". Tampoco uses corchetes aquí.
+
+        REGLA 3:
+        - En "espanol": Provee la traducción natural completa al español.
+        - En "pista": Incluye una pista breve en español (ej: "Preposición de tiempo", "Verbo irregular en pasado", "Phrasal verb: descubrir").
         """
 
         historial_seguro = historial_texto.replace("</historial>", "")
         if not historial_seguro.strip():
-            historial_seguro = "El alumno ingresó a la plataforma por primera vez. Haz unas oraciones básicas B1."
+            historial_seguro = "El alumno ingresó a la plataforma por primera vez. Haz unas oraciones útiles nivel B1."
 
         usuario_input = f"<historial>\n{historial_seguro}\n</historial>"
 
         configuracion = types.GenerateContentConfig(
             system_instruction=instrucciones,
             response_mime_type="application/json",
-            temperature=0.7,
+            response_schema=list[OracionClozePropuesta],
+            temperature=0.4,
         )
 
         response = client.models.generate_content(
@@ -104,9 +106,24 @@ def generar_cloze_con_ia(
 
         insertadas = 0
         for oracion in oraciones_ia:
-            ingles = str(oracion.get("ingles", "")).strip()
-            espanol = str(oracion.get("espanol", "")).strip()
-            palabra_oculta = str(oracion.get("palabra_oculta", "")).strip()
+            ingles = (
+                str(oracion.get("ingles", ""))
+                .replace("[", "")
+                .replace("]", "")
+                .strip()
+            )
+            espanol = (
+                str(oracion.get("espanol", ""))
+                .replace("[", "")
+                .replace("]", "")
+                .strip()
+            )
+            palabra_oculta = (
+                str(oracion.get("palabra_oculta", ""))
+                .replace("[", "")
+                .replace("]", "")
+                .strip()
+            )
             if ingles and espanol:
                 nueva_oracion = OracionCloze(
                     ingles=ingles,

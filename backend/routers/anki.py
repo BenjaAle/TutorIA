@@ -106,77 +106,16 @@ def generar_badge_cefr(nivel: str) -> str:
 def asegurar_corchetes_en_ejemplos(
     ejemplo_ingles: str, termino_objetivo: str, frente: str = ""
 ) -> str:
-    """Asegura que cada ejemplo en 'ejemplo_ingles' contenga [palabra_clave] para ejercicios Cloze."""
+    """Función de compatibilidad: asegura que la oración esté limpia de corchetes según el nuevo estándar."""
     if not ejemplo_ingles:
         return ""
-
-    oraciones = [o.strip() for o in ejemplo_ingles.split("|")]
-    oraciones_ajustadas = []
-
-    posibles_terminos = []
-    if termino_objetivo:
-        t_clean = (
-            re.sub(r"\(.*?\)", "", termino_objetivo).replace("*", "").strip()
-        )
-        if t_clean:
-            posibles_terminos.append(t_clean)
-    if frente:
-        frente_limpio = re.sub(r"\(.*?\)", "", frente).replace("*", "").strip()
-        if frente_limpio and frente_limpio not in posibles_terminos:
-            posibles_terminos.append(frente_limpio)
-        # Si tiene varias palabras (ej. 'Pull a mob'), añadir también la primera palabra ('Pull')
-        partes = frente_limpio.split()
-        if len(partes) > 1 and partes[0] not in posibles_terminos:
-            posibles_terminos.append(partes[0])
-
-    for oracion in oraciones:
-        # Si ya tiene corchetes, no tocarla
-        if "[" in oracion and "]" in oracion:
-            oraciones_ajustadas.append(oracion)
-            continue
-
-        oracion_con_corchetes = oracion
-        for t in posibles_terminos:
-            if not t or len(t) < 2:
-                continue
-
-            # 1. Probar palabra con posibles sufijos flexivos (ing, ed, s, es, d)
-            patron_flexivo = r"\b(" + re.escape(t) + r"(?:ing|ed|s|es|d)?)\b"
-            match = re.search(
-                patron_flexivo, oracion_con_corchetes, re.IGNORECASE
-            )
-            if match:
-                palabra_encontrada = match.group(1)
-                oracion_con_corchetes = (
-                    oracion_con_corchetes[: match.start(1)]
-                    + f"[{palabra_encontrada}]"
-                    + oracion_con_corchetes[match.end(1) :]
-                )
-                break
-
-            # 2. Búsqueda exacta de palabra o frase completa
-            patron_exacto = r"\b(" + re.escape(t) + r")\b"
-            match_exacto = re.search(
-                patron_exacto, oracion_con_corchetes, re.IGNORECASE
-            )
-            if match_exacto:
-                palabra_encontrada = match_exacto.group(1)
-                oracion_con_corchetes = (
-                    oracion_con_corchetes[: match_exacto.start(1)]
-                    + f"[{palabra_encontrada}]"
-                    + oracion_con_corchetes[match_exacto.end(1) :]
-                )
-                break
-
-        oraciones_ajustadas.append(oracion_con_corchetes)
-
-    return " | ".join(oraciones_ajustadas)
+    return ejemplo_ingles.replace("[", "").replace("]", "").strip()
 
 
 def normalizar_carta_propuesta(
     carta_dict: dict, termino_req: str = "", es_historia: bool = False
 ) -> dict:
-    """Normaliza y valida los campos estructurados de una carta (ejemplos, cloze, campos retrocompatibles)."""
+    """Normaliza y valida los campos estructurados de una carta garantizando texto limpio sin corchetes y palabra_oculta explícita."""
     frente = str(carta_dict.get("frente", "")).strip()
     palabra_clave = str(carta_dict.get("palabra_clave", "")).strip()
 
@@ -187,22 +126,36 @@ def normalizar_carta_propuesta(
     if isinstance(ejemplos_raw, list) and len(ejemplos_raw) > 0:
         for ex in ejemplos_raw:
             if isinstance(ex, dict):
-                en = str(ex.get("en", "")).strip()
-                es = str(ex.get("es", "")).strip().replace("[", "").replace("]", "")
-                p_oculta = (
-                    str(ex.get("palabra_oculta", ""))
-                    .strip()
+                en = (
+                    str(ex.get("en", ""))
                     .replace("[", "")
                     .replace("]", "")
+                    .strip()
+                )
+                es = (
+                    str(ex.get("es", ""))
+                    .replace("[", "")
+                    .replace("]", "")
+                    .strip()
+                )
+                p_oculta = (
+                    str(ex.get("palabra_oculta", ""))
+                    .replace("[", "")
+                    .replace("]", "")
+                    .strip()
                 )
                 ejemplos.append({"en": en, "es": es, "palabra_oculta": p_oculta})
     else:
         # Fallback para respuestas antiguas con pipes
         en_str = str(carta_dict.get("ejemplo_ingles", "")).strip()
         es_str = str(carta_dict.get("ejemplo_espanol", "")).strip()
-        oraciones_en = [o.strip() for o in en_str.split("|") if o.strip()]
+        oraciones_en = [
+            o.replace("[", "").replace("]", "").strip()
+            for o in en_str.split("|")
+            if o.strip()
+        ]
         oraciones_es = [
-            o.strip().replace("[", "").replace("]", "")
+            o.replace("[", "").replace("]", "").strip()
             for o in es_str.split("|")
             if o.strip()
         ]
@@ -210,11 +163,9 @@ def normalizar_carta_propuesta(
         for idx in range(count):
             en = oraciones_en[idx] if idx < len(oraciones_en) else ""
             es = oraciones_es[idx] if idx < len(oraciones_es) else ""
-            m = re.search(r"\[(.*?)\]", en)
-            p_oculta = m.group(1).strip() if m else ""
-            ejemplos.append({"en": en, "es": es, "palabra_oculta": p_oculta})
+            ejemplos.append({"en": en, "es": es, "palabra_oculta": ""})
 
-    # 2. Asegurar corchetes [ ] y palabra_oculta en cada ejemplo
+    # 2. Identificar palabra_oculta explícita para cada ejemplo
     posibles_terminos = []
     if termino_req:
         t_clean = re.sub(r"\(.*?\)", "", termino_req).replace("*", "").strip()
@@ -236,59 +187,36 @@ def normalizar_carta_propuesta(
         en = ex["en"]
         p_oculta = ex.get("palabra_oculta", "")
 
-        # Si ya tiene corchetes, extraer palabra_oculta
-        if "[" in en and "]" in en:
-            m = re.search(r"\[(.*?)\]", en)
-            if m:
-                ex["palabra_oculta"] = m.group(1).strip()
-            continue
-
-        en_con_corchetes = en
-        encontrado = False
-
-        # Si tiene palabra_oculta explícita, buscarla en la oración
-        if p_oculta and len(p_oculta) >= 2:
-            patron_oculta = r"\b(" + re.escape(p_oculta) + r")\b"
-            m = re.search(patron_oculta, en_con_corchetes, re.IGNORECASE)
-            if m:
-                en_con_corchetes = (
-                    en_con_corchetes[: m.start(1)]
-                    + f"[{m.group(1)}]"
-                    + en_con_corchetes[m.end(1) :]
-                )
-                ex["palabra_oculta"] = m.group(1)
-                encontrado = True
-
-        # Si no, probar con los términos candidatos (flexivo y exacto)
-        if not encontrado:
+        # Si no tiene palabra_oculta, buscar cuál de los términos candidatos aparece en la oración
+        if not p_oculta or len(p_oculta) < 2:
+            encontrado = False
             for t in posibles_terminos:
                 if not t or len(t) < 2:
                     continue
+                # Flexivo (ing, ed, s, es, d)
                 patron_flex = r"\b(" + re.escape(t) + r"(?:ing|ed|s|es|d)?)\b"
-                m = re.search(patron_flex, en_con_corchetes, re.IGNORECASE)
+                m = re.search(patron_flex, en, re.IGNORECASE)
                 if m:
-                    en_con_corchetes = (
-                        en_con_corchetes[: m.start(1)]
-                        + f"[{m.group(1)}]"
-                        + en_con_corchetes[m.end(1) :]
-                    )
                     ex["palabra_oculta"] = m.group(1)
                     encontrado = True
                     break
 
+                # Exacto
                 patron_exacto = r"\b(" + re.escape(t) + r")\b"
-                m_ex = re.search(patron_exacto, en_con_corchetes, re.IGNORECASE)
+                m_ex = re.search(patron_exacto, en, re.IGNORECASE)
                 if m_ex:
-                    en_con_corchetes = (
-                        en_con_corchetes[: m_ex.start(1)]
-                        + f"[{m_ex.group(1)}]"
-                        + en_con_corchetes[m_ex.end(1) :]
-                    )
                     ex["palabra_oculta"] = m_ex.group(1)
                     encontrado = True
                     break
 
-        ex["en"] = en_con_corchetes
+            if not encontrado and posibles_terminos:
+                ex["palabra_oculta"] = posibles_terminos[0]
+
+        # Asegurar estándar sin corchetes en ninguno de los campos
+        ex["en"] = en.replace("[", "").replace("]", "").strip()
+        ex["palabra_oculta"] = (
+            ex.get("palabra_oculta", "").replace("[", "").replace("]", "").strip()
+        )
 
     # 3. Sincronizar campos
     carta_dict["ejemplos"] = ejemplos
@@ -348,9 +276,9 @@ def proponer_cartas(req: ExtraerRequest, user_id: str = Depends(get_current_user
     - Si el término pertenece a "Phrasal Verbs": Crea un ejemplo por CADA UNO de sus significados comunes.
     - Para cualquier otro término: Crea al menos 2 ejemplos representativos.
     - En CADA objeto de la lista "ejemplos":
-      * "en": Oración de ejemplo en inglés con el término envuelto en corchetes rectos [asi].
-      * "es": Traducción natural al español (texto plano natural, SIN corchetes).
-      * "palabra_oculta": La palabra, raíz o colocación exacta envuelta entre corchetes en "en".
+      * "en": Oración de ejemplo en inglés completa y natural. ESTRICTAMENTE PROHIBIDO usar corchetes [ ] o guiones bajos (____).
+      * "es": Traducción natural al español (texto plano natural).
+      * "palabra_oculta": La palabra, raíz, forma flexionada o colocación exacta presente en la oración que se evaluará en Cloze. NUNCA uses corchetes aquí tampoco.
 
     REGLA 4: Si pertenece a "Phrasal Verbs":
     1. En el campo "frente", añade entre paréntesis su tipo gramatical: "(Sin objeto)", "(Separable)" o "(Inseparable)".
@@ -1255,13 +1183,13 @@ def proponer_carta_unica(
     3. LISTA DE EJEMPLOS ("ejemplos"):
        - Debes incluir exactamente 2 objetos en el arreglo "ejemplos":
          * PRIMER EJEMPLO:
-           - "en": Debe ser EXACTAMENTE la oración del contexto (<contexto>), envolviendo obligatoriamente la palabra o colocación entre corchetes rectos [asi].
-           - "es": Debe ser EXACTAMENTE la traducción de la historia (<traduccion_contexto>) si está disponible, o su traducción fiel y natural (sin corchetes).
-           - "palabra_oculta": La palabra o colocación exacta envuelta entre corchetes en "en".
+           - "en": Debe ser EXACTAMENTE la oración del contexto (<contexto>) en inglés limpio y natural. ESTRICTAMENTE PROHIBIDO usar corchetes [ ] o guiones bajos (____).
+           - "es": Debe ser EXACTAMENTE la traducción de la historia (<traduccion_contexto>) si está disponible, o su traducción natural.
+           - "palabra_oculta": La palabra o colocación exacta presente en la oración que el estudiante está aprendiendo. Sin corchetes.
          * SEGUNDO EJEMPLO:
-           - "en": Una oración nueva que use el término en este MISMO sentido contextual, también con la palabra envuelta en corchetes [asi].
-           - "es": Su traducción natural al español (sin corchetes).
-           - "palabra_oculta": La palabra o colocación exacta envuelta entre corchetes en "en".
+           - "en": Una oración nueva y natural que use el término en este MISMO sentido contextual. ESTRICTAMENTE PROHIBIDO usar corchetes [ ] o guiones bajos (____).
+           - "es": Su traducción natural al español.
+           - "palabra_oculta": La palabra o colocación exacta presente en la oración. Sin corchetes.
 
     4. IMÁGENES:
        "termino_imagen" NUNCA debe estar vacío. Debe ser una palabra visual en inglés que represente el concepto según su significado contextual.

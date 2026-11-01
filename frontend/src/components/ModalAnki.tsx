@@ -313,18 +313,20 @@ export default function ModalAnki({
         while (ejemplos.length <= exampleIndex) {
           ejemplos.push({ en: "", es: "", palabra_oculta: "" });
         }
-        ejemplos[exampleIndex] = {
-          ...ejemplos[exampleIndex],
-          [field]: value,
-        };
 
-        // Si se edita la oración en inglés 'en', extraer palabra_oculta si lleva corchetes [ ]
-        if (field === "en") {
+        // Estándar estricto sin corchetes
+        let valLimpia = value.replace(/\[|\]/g, "");
+        if (field === "en" && (value.includes("[") || value.includes("]"))) {
           const match = value.match(/\[(.*?)\]/);
           if (match && match[1]) {
             ejemplos[exampleIndex].palabra_oculta = match[1].trim();
           }
         }
+
+        ejemplos[exampleIndex] = {
+          ...ejemplos[exampleIndex],
+          [field]: valLimpia,
+        };
 
         return {
           ...carta,
@@ -350,26 +352,27 @@ export default function ModalAnki({
       ejemplos.push({ en: "", es: "", palabra_oculta: "" });
     }
 
-    // Si el usuario activa Cloze en un ejemplo sin corchetes [ ], intentar envolver automáticamente la palabra clave
-    if (valor) {
+    // Si se activa Cloze y no hay palabra_oculta, intentar deducir cuál palabra de la oración coincide
+    if (valor && !ejemplos[exampleIndex]?.palabra_oculta) {
       const oracion = ejemplos[exampleIndex]?.en || "";
-      if (oracion && !oracion.includes("[") && !oracion.includes("]")) {
-        const palabraBase = (card.frente || "")
-          .replace(/\(.*?\)/g, "")
-          .replace(/\*+/g, "")
-          .trim();
-        if (palabraBase) {
-          const escaped = palabraBase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-          const regex = new RegExp(`\\b(${escaped}\\w*)\\b`, "i");
-          if (regex.test(oracion)) {
-            const nuevaOracion = oracion.replace(regex, "[$1]");
-            const match = nuevaOracion.match(/\[(.*?)\]/);
-            ejemplos[exampleIndex] = {
-              ...ejemplos[exampleIndex],
-              en: nuevaOracion,
-              palabra_oculta: match ? match[1].trim() : palabraBase,
-            };
-          }
+      const palabraBase = (card.frente || "")
+        .replace(/\(.*?\)/g, "")
+        .replace(/\*+/g, "")
+        .trim();
+      if (palabraBase) {
+        const escaped = palabraBase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const regex = new RegExp(`\\b(${escaped}\\w*)\\b`, "i");
+        const match = oracion.match(regex);
+        if (match) {
+          ejemplos[exampleIndex] = {
+            ...ejemplos[exampleIndex],
+            palabra_oculta: match[1],
+          };
+        } else {
+          ejemplos[exampleIndex] = {
+            ...ejemplos[exampleIndex],
+            palabra_oculta: palabraBase,
+          };
         }
       }
     }
@@ -827,7 +830,7 @@ export default function ModalAnki({
                     <Input
                       aria-label={`Ejemplo ${i + 1} en inglés`}
                       value={ex.en || ""}
-                      placeholder="Ejemplo en inglés (usa [corchetes] para Cloze)..."
+                      placeholder="Ejemplo en inglés..."
                       className="h-8 shadow-none"
                       onChange={(e) =>
                         handleExampleFieldChange(i, "en", e.target.value)
@@ -845,43 +848,10 @@ export default function ModalAnki({
                       }
                       className="bg-muted/30 text-muted-foreground h-8 shadow-none border-dashed border-t-0 focus-visible:border-solid focus-visible:border-t"
                     />
-                    <div className="col-span-2 flex items-center justify-between pt-1">
-                      <div>
-                        {Boolean(card?.ejemplos_cloze?.[i]) &&
-                          (() => {
-                            const match = (ex.en || "").match(/\[(.*?)\]/);
-                            const palabra =
-                              ex.palabra_oculta || (match && match[1]);
-                            if (palabra) {
-                              return (
-                                <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                                  <span>Ocultará:</span>
-                                  <span className="font-mono font-bold text-foreground bg-muted px-1.5 py-0.5 rounded border border-border">
-                                    [{palabra}]
-                                  </span>
-                                </span>
-                              );
-                            }
-                            return (
-                              <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
-                                ⚠️ Pon [corchetes] a la palabra a ocultar
-                              </span>
-                            );
-                          })()}
-                      </div>
 
-                      <div className="flex items-center gap-2">
-                        {(card?.ejemplos || []).length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveExample(i)}
-                            className="text-muted-foreground/60 hover:text-destructive text-xs p-1 rounded transition-colors"
-                            title="Eliminar este ejemplo"
-                          >
-                            <Trash2 className="size-3.5" />
-                          </button>
-                        )}
-
+                    {/* Fila de controles Cloze y eliminación */}
+                    <div className="col-span-2 pt-1 space-y-2">
+                      <div className="flex items-center justify-between">
                         <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground hover:text-foreground select-none">
                           <input
                             type="checkbox"
@@ -896,7 +866,126 @@ export default function ModalAnki({
                             Añadir este ejemplo a Cloze
                           </span>
                         </label>
+
+                        {(card?.ejemplos || []).length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveExample(i)}
+                            className="text-muted-foreground/60 hover:text-destructive text-xs p-1 rounded transition-colors cursor-pointer"
+                            title="Eliminar este ejemplo"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        )}
                       </div>
+
+                      {/* Selector visual interactivo de palabra oculta para Cloze (sin corchetes) */}
+                      {Boolean(card?.ejemplos_cloze?.[i]) && (
+                        <div className="p-2.5 rounded-md bg-muted/40 border border-border/70 space-y-2 animate-in fade-in duration-150">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span className="text-[11px] font-semibold text-foreground flex items-center gap-1">
+                              Palabra o frase a ocultar:
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                value={ex.palabra_oculta || ""}
+                                onChange={(e) =>
+                                  handleExampleFieldChange(
+                                    i,
+                                    "palabra_oculta",
+                                    e.target.value,
+                                  )
+                                }
+                                placeholder="Escribe o haz clic..."
+                                className="h-6 text-xs font-mono font-bold bg-background border border-border rounded px-2 text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary w-40"
+                              />
+                              {ex.palabra_oculta && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleExampleFieldChange(
+                                      i,
+                                      "palabra_oculta",
+                                      "",
+                                    )
+                                  }
+                                  className="text-[10px] text-muted-foreground hover:text-foreground underline cursor-pointer"
+                                  title="Limpiar selección"
+                                >
+                                  Limpiar
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Chips clickeables para seleccionar palabras de la frase con un solo toque */}
+                          {(() => {
+                            const palabras = (ex.en || "")
+                              .split(/\s+/)
+                              .map((p) => p.trim())
+                              .filter(Boolean);
+                            if (palabras.length === 0) return null;
+
+                            const seleccionActual = (
+                              ex.palabra_oculta || ""
+                            ).trim().toLowerCase();
+
+                            return (
+                              <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                                <span className="text-[10px] text-muted-foreground mr-0.5 select-none">
+                                  Toca una palabra:
+                                </span>
+                                {palabras.map((p, pIdx) => {
+                                  const palabraLimpia = p.replace(
+                                    /^[^\w']+|[^\w']+$/g,
+                                    "",
+                                  );
+                                  const estaSeleccionada =
+                                    palabraLimpia &&
+                                    seleccionActual.split(/\s+/).includes(
+                                      palabraLimpia.toLowerCase(),
+                                    );
+
+                                  return (
+                                    <button
+                                      key={pIdx}
+                                      type="button"
+                                      onClick={() => {
+                                        if (!palabraLimpia) return;
+                                        if (
+                                          seleccionActual ===
+                                          palabraLimpia.toLowerCase()
+                                        ) {
+                                          handleExampleFieldChange(
+                                            i,
+                                            "palabra_oculta",
+                                            "",
+                                          );
+                                        } else {
+                                          handleExampleFieldChange(
+                                            i,
+                                            "palabra_oculta",
+                                            palabraLimpia,
+                                          );
+                                        }
+                                      }}
+                                      className={cn(
+                                        "text-[11px] px-1.5 py-0.5 rounded border transition-colors cursor-pointer select-none",
+                                        estaSeleccionada
+                                          ? "bg-primary text-primary-foreground border-primary font-bold shadow-2xs"
+                                          : "bg-background text-foreground/80 hover:bg-muted border-border hover:border-primary/50",
+                                      )}
+                                    >
+                                      {p}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
