@@ -549,8 +549,8 @@ export default function ModalAnki({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleCerrar}>
-      <DialogContent className="max-h-[92dvh] gap-0 overflow-y-auto scrollbar-hide p-0 sm:max-w-4xl bg-background rounded-lg border border-border shadow-lg">
-        <DialogHeader className="border-b border-border px-6 py-5 sticky top-0 bg-background/95 backdrop-blur-xs z-10">
+      <DialogContent className="h-[92dvh] max-h-[92dvh] sm:max-w-5xl bg-background rounded-lg border border-border shadow-lg flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="border-b border-border px-6 py-4 shrink-0 bg-background z-10">
           <DialogTitle className="font-serif text-2xl font-semibold">
             Revisa tus cartas para Anki
           </DialogTitle>
@@ -615,154 +615,9 @@ export default function ModalAnki({
           </div>
         )}
 
-        <div className="grid gap-0 md:grid-cols-[1.1fr_1fr]">
-          <div className="border-b border-border bg-muted/30 p-6 md:border-b-0 md:border-r relative flex flex-col">
-            <div className="mb-4 flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">
-                Vista previa de la carta
-              </span>
-              {(() => {
-                const cefr =
-                  NIVELES_CEFR.find((n) => n.id === (card?.nivel_cefr || "B1")) ||
-                  NIVELES_CEFR[2];
-                return (
-                  <span
-                    className={cn(
-                      "text-[11px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 shadow-2xs",
-                      cefr.bg,
-                      cefr.color,
-                      cefr.border,
-                    )}
-                  >
-                    Nivel {cefr.label} • {cefr.desc}
-                  </span>
-                );
-              })()}
-            </div>
-
-            <div className="flex flex-col rounded-xl border border-border bg-card p-5 text-center shadow-sm justify-between">
-              <div className="space-y-4">
-                {/* Frente */}
-                <div className="py-2 border-b border-border/60">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block mb-1">
-                    Frente
-                  </span>
-                  <p className="font-serif text-2xl font-bold text-foreground">
-                    {card?.frente || "Concepto"}
-                  </p>
-                </div>
-
-                {/* Reverso */}
-                <div className="py-2">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block mb-2">
-                    Reverso
-                  </span>
-
-                  {/* Previsualización de Imagen Pexels */}
-                  {!card?.sin_imagen && (
-                    card?.url_imagen ? (
-                      <div className="mb-3 overflow-hidden rounded-lg border border-border shadow-2xs max-h-44 bg-muted/20 flex items-center justify-center">
-                        <img
-                          src={card.url_imagen}
-                          alt={card.termino_imagen || "Imagen Pexels"}
-                          className="w-full h-36 sm:h-40 object-cover"
-                          loading="lazy"
-                        />
-                      </div>
-                    ) : buscandoFotos ? (
-                      <div className="mb-3 h-32 rounded-lg border border-dashed border-border/80 flex flex-col items-center justify-center text-xs text-muted-foreground gap-1.5 bg-muted/20 animate-pulse">
-                        <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                        <span>Buscando imagen en Pexels...</span>
-                      </div>
-                    ) : null
-                  )}
-
-                  <p className="font-sans text-sm font-semibold text-foreground/90 leading-relaxed whitespace-pre-wrap">
-                    {card?.reverso?.replace(/<br\s*\/?>/gi, "\n") || "Definición"}
-                  </p>
-                </div>
-
-                {/* Ejemplos si existen */}
-                {(() => {
-                  const ejemplos =
-                    card?.ejemplos && card.ejemplos.length > 0
-                      ? card.ejemplos
-                      : (card?.ejemplo_ingles || "")
-                          .split("|")
-                          .map((s, idx) => ({
-                            en: s.trim(),
-                            es:
-                              (card?.ejemplo_espanol || "")
-                                .split("|")[idx]
-                                ?.trim() || "",
-                          }))
-                          .filter((e) => e.en);
-
-                  if (!ejemplos || ejemplos.length === 0) return null;
-
-                  return (
-                    <div className="space-y-2 text-left">
-                      {ejemplos.map((ex, idx) => (
-                        <div
-                          key={idx}
-                          className="text-xs bg-muted/30 p-2.5 rounded-md border border-border/50 space-y-1"
-                        >
-                          <p className="font-serif text-foreground italic">
-                            "{ex.en.replace(/\[|\]/g, "").trim()}"
-                          </p>
-                          {ex.es && (
-                            <p className="text-muted-foreground font-sans">
-                              {ex.es.replace(/\[|\]/g, "")}
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-
-                {/* Nota de uso si existe */}
-                {card?.observacion && (
-                  <div className="text-left text-[11px] border-l-2 border-primary/50 bg-primary/5 p-2 rounded-r text-muted-foreground">
-                    <span className="font-semibold text-foreground">💡 Nota de uso: </span>
-                    {card.observacion}
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-3 mt-4 border-t border-border/40 text-[10px] text-muted-foreground flex justify-between items-center">
-                <span>Categoría: {card?.categoria || "Vocabulario"}</span>
-                <span>Mazo: TutorIA</span>
-              </div>
-            </div>
-
-            {/* Navigador de Cartas */}
-            {cartas.length > 1 && (
-              <div className="mt-6 flex items-center justify-between px-2">
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  disabled={currentIndex === 0}
-                  onClick={() => setCurrentIndex((c) => c - 1)}
-                >
-                  <ChevronLeft className="size-4" />
-                </Button>
-                <div className="text-sm font-medium">
-                  Carta {currentIndex + 1} de {cartas.length}
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  disabled={currentIndex === cartas.length - 1}
-                  onClick={() => setCurrentIndex((c) => c + 1)}
-                >
-                  <ChevronRight className="size-4" />
-                </Button>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-5 p-6">
+        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[1.1fr_1fr] overflow-hidden">
+          {/* COLUMNA IZQUIERDA: Campos editables (con scroll independiente) */}
+          <div className="space-y-5 p-6 overflow-y-auto h-full border-b md:border-b-0 md:border-r border-border">
             <div className="flex justify-between items-center">
               <span className="text-sm font-medium text-muted-foreground">
                 Campos de la carta actual
@@ -1215,9 +1070,156 @@ export default function ModalAnki({
               )}
             </div>
           </div>
+
+          {/* COLUMNA DERECHA: Vista previa de la carta (siempre visible completa y fija) */}
+          <div className="bg-muted/20 p-5 md:p-6 h-full flex flex-col justify-between overflow-y-auto relative">
+            <div className="mb-3 flex items-center justify-between shrink-0">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Vista previa de la carta
+              </span>
+              {(() => {
+                const cefr =
+                  NIVELES_CEFR.find((n) => n.id === (card?.nivel_cefr || "B1")) ||
+                  NIVELES_CEFR[2];
+                return (
+                  <span
+                    className={cn(
+                      "text-[11px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 shadow-2xs",
+                      cefr.bg,
+                      cefr.color,
+                      cefr.border,
+                    )}
+                  >
+                    Nivel {cefr.label} • {cefr.desc}
+                  </span>
+                );
+              })()}
+            </div>
+
+            <div className="flex flex-col rounded-xl border border-border bg-card p-4 sm:p-5 text-center shadow-sm justify-between my-auto">
+              <div className="space-y-3">
+                {/* Frente */}
+                <div className="py-1.5 border-b border-border/60">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block mb-0.5">
+                    Frente
+                  </span>
+                  <p className="font-serif text-xl sm:text-2xl font-bold text-foreground">
+                    {card?.frente || "Concepto"}
+                  </p>
+                </div>
+
+                {/* Reverso */}
+                <div className="py-1.5">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block mb-1.5">
+                    Reverso
+                  </span>
+
+                  {/* Previsualización de Imagen Pexels */}
+                  {!card?.sin_imagen && (
+                    card?.url_imagen ? (
+                      <div className="mb-2.5 overflow-hidden rounded-lg border border-border shadow-2xs max-h-36 bg-muted/20 flex items-center justify-center">
+                        <img
+                          src={card.url_imagen}
+                          alt={card.termino_imagen || "Imagen Pexels"}
+                          className="w-full h-28 sm:h-32 object-cover"
+                          loading="lazy"
+                        />
+                      </div>
+                    ) : buscandoFotos ? (
+                      <div className="mb-2.5 h-28 rounded-lg border border-dashed border-border/80 flex flex-col items-center justify-center text-xs text-muted-foreground gap-1.5 bg-muted/20 animate-pulse">
+                        <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                        <span>Buscando imagen en Pexels...</span>
+                      </div>
+                    ) : null
+                  )}
+
+                  <p className="font-sans text-sm font-semibold text-foreground/90 leading-relaxed whitespace-pre-wrap">
+                    {card?.reverso?.replace(/<br\s*\/?>/gi, "\n") || "Definición"}
+                  </p>
+                </div>
+
+                {/* Ejemplos si existen */}
+                {(() => {
+                  const ejemplos =
+                    card?.ejemplos && card.ejemplos.length > 0
+                      ? card.ejemplos
+                      : (card?.ejemplo_ingles || "")
+                          .split("|")
+                          .map((s, idx) => ({
+                            en: s.trim(),
+                            es:
+                              (card?.ejemplo_espanol || "")
+                                .split("|")[idx]
+                                ?.trim() || "",
+                          }))
+                          .filter((e) => e.en);
+
+                  if (!ejemplos || ejemplos.length === 0) return null;
+
+                  return (
+                    <div className="space-y-1.5 text-left max-h-36 overflow-y-auto pr-1">
+                      {ejemplos.map((ex, idx) => (
+                        <div
+                          key={idx}
+                          className="text-xs bg-muted/30 p-2 rounded-md border border-border/50 space-y-0.5"
+                        >
+                          <p className="font-serif text-foreground italic">
+                            "{ex.en.replace(/\[|\]/g, "").trim()}"
+                          </p>
+                          {ex.es && (
+                            <p className="text-muted-foreground font-sans text-[11px]">
+                              {ex.es.replace(/\[|\]/g, "")}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {/* Nota de uso si existe */}
+                {card?.observacion && (
+                  <div className="text-left text-[11px] border-l-2 border-primary/50 bg-primary/5 p-2 rounded-r text-muted-foreground">
+                    <span className="font-semibold text-foreground">💡 Nota de uso: </span>
+                    {card.observacion}
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2.5 mt-3 border-t border-border/40 text-[10px] text-muted-foreground flex justify-between items-center shrink-0">
+                <span>Categoría: {card?.categoria || "Vocabulario"}</span>
+                <span>Mazo: TutorIA</span>
+              </div>
+            </div>
+
+            {/* Navigador de Cartas */}
+            {cartas.length > 1 && (
+              <div className="mt-3 flex items-center justify-between px-2 shrink-0">
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  disabled={currentIndex === 0}
+                  onClick={() => setCurrentIndex((c) => c - 1)}
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <div className="text-sm font-medium">
+                  Carta {currentIndex + 1} de {cartas.length}
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  disabled={currentIndex === cartas.length - 1}
+                  onClick={() => setCurrentIndex((c) => c + 1)}
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
-        <DialogFooter className="m-0 items-center rounded-none px-6 py-4 sm:justify-between border-t border-border bg-muted/10 sticky bottom-0 bg-background/95 backdrop-blur-xs z-10">
+        <DialogFooter className="m-0 items-center rounded-none px-6 py-3.5 sm:justify-between border-t border-border bg-background shrink-0 z-10">
           <p
             className="text-xs text-muted-foreground hidden md:block"
             aria-live="polite"

@@ -735,14 +735,26 @@ export default function SpeakingPage() {
     },
     key: string,
   ) => {
+    const cleanExample = (sug.example_sentence || "").replace(/\[|\]/g, "").trim();
+    const cleanWord = (sug.better_alternative || "").replace(/\[|\]/g, "").trim();
+
     setPendingAnkiKey(key);
     setCartasAExportar([
       {
-        frente: sug.better_alternative,
+        frente: cleanWord,
         reverso: sug.original_word,
-        ejemplo_ingles: sug.example_sentence,
-        ejemplo_espanol: `Uso contextual en speaking.`,
-        termino_imagen: sug.better_alternative,
+        ejemplos: cleanExample
+          ? [
+              {
+                en: cleanExample,
+                es: "Uso contextual en speaking.",
+                palabra_oculta: cleanWord,
+              },
+            ]
+          : [],
+        ejemplo_ingles: cleanExample,
+        ejemplo_espanol: cleanExample ? "Uso contextual en speaking." : "",
+        termino_imagen: cleanWord,
         categoria: "Expresiones Nativas",
         observacion: `Alternativa nativa más natural a "${sug.original_word}": ${sug.explanation}`,
       },

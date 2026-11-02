@@ -27,6 +27,10 @@ from models import (
     GenerarTemaRequest,
     SintetizarFraseRequest,
     SpeakingAnkiItemRequest,
+    TemaSpeakingPropuesto,
+    EvaluacionSpeakingPropuesta,
+    EvaluacionShadowingPropuesta,
+    FraseShadowingPropuesta,
 )
 
 router = APIRouter(tags=["Speaking"])
@@ -162,13 +166,24 @@ def generar_tema_con_ia(
         }}
         """
 
+        configuracion = types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=TemaSpeakingPropuesto,
+            temperature=0.7,
+        )
+
         response = client.models.generate_content(
             model=GEMINI_MODEL,
             contents=prompt,
-            config={"response_mime_type": "application/json"},
+            config=configuracion,
         )
 
-        data = json.loads(response.text)
+        respuesta_limpia = (
+            response.text.replace("```json", "").replace("```", "").strip()
+        )
+        data = json.loads(respuesta_limpia)
+        if not data.get("id"):
+            data["id"] = f"custom_{uuid.uuid4().hex[:6]}"
         return {"tema": data}
     except Exception as e:
         raise HTTPException(
@@ -291,61 +306,35 @@ async def evaluar_speaking(
         }}
         """
 
+        configuracion = types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=EvaluacionSpeakingPropuesta,
+            temperature=0.2,
+        )
+
         gemini_response = client.models.generate_content(
             model=GEMINI_MODEL,
             contents=[part_audio, prompt_evaluacion],
-            config={"response_mime_type": "application/json"},
+            config=configuracion,
         )
 
-        raw_text = gemini_response.text.strip()
-        # Eliminar posibles bloques de markdown ```json ... ``` que a veces incluye la IA
-        if raw_text.startswith("```"):
-            lineas = raw_text.splitlines()
-            if lineas[0].startswith("```"):
-                lineas = lineas[1:]
-            if lineas and lineas[-1].startswith("```"):
-                lineas = lineas[:-1]
-            raw_text = "\n".join(lineas).strip()
+        respuesta_limpia = (
+            gemini_response.text.replace("```json", "").replace("```", "").strip()
+        )
+        detalles = json.loads(respuesta_limpia)
 
-        # strict=False permite caracteres de control no escapados como saltos de línea literales en strings JSON
-        try:
-            detalles = json.loads(raw_text, strict=False)
-        except Exception:
-            # Fallback en caso de caracteres de control problemáticos
-            import re
-            raw_text_clean = re.sub(r'[\x00-\x1f\x7f-\x9f]', lambda m: '\n' if m.group(0) in '\r\n\t' else ' ', raw_text)
-            detalles = json.loads(raw_text_clean, strict=False)
-
-        # Normalizar errores gramaticales si la IA separó frase y explicación en objetos distintos
+        # Asegurar formato estándar y limpio en errores gramaticales
         raw_errors = detalles.get("grammar", {}).get("errors", [])
         if isinstance(raw_errors, list):
-            normalized_errors = []
-            i = 0
-            while i < len(raw_errors):
-                err = raw_errors[i]
-                if not isinstance(err, dict):
-                    i += 1
-                    continue
-                orig = str(err.get("original", "") or "").strip()
-                corr = str(err.get("correction", "") or "").strip()
-                expl = str(err.get("explanation", "") or "").strip()
-
-                # Si tiene original/corr pero no explicación, y el siguiente tiene explicación sin original
-                if (orig or corr) and not expl and (i + 1 < len(raw_errors)):
-                    next_err = raw_errors[i + 1]
-                    if isinstance(next_err, dict) and next_err.get("explanation") and not next_err.get("original"):
-                        expl = str(next_err.get("explanation", "") or "").strip()
-                        i += 1
-
-                if orig or corr or expl:
-                    normalized_errors.append({
-                        "original": orig,
-                        "correction": corr,
-                        "explanation": expl,
-                    })
-                i += 1
-            if "grammar" in detalles and isinstance(detalles["grammar"], dict):
-                detalles["grammar"]["errors"] = normalized_errors
+            detalles["grammar"]["errors"] = [
+                {
+                    "original": str(e.get("original", "")).strip(),
+                    "correction": str(e.get("correction", "")).strip(),
+                    "explanation": str(e.get("explanation", "")).strip(),
+                }
+                for e in raw_errors
+                if isinstance(e, dict) and (e.get("original") or e.get("correction"))
+            ]
 
 
         # Ajuste de WPM si es posible calcularlo
@@ -620,6 +609,7 @@ async def evaluar_shadowing(
 
         configuracion = types.GenerateContentConfig(
             response_mime_type="application/json",
+            response_schema=EvaluacionShadowingPropuesta,
             temperature=0.2,
         )
 
@@ -629,24 +619,10 @@ async def evaluar_shadowing(
             config=configuracion,
         )
 
-        raw_text = gemini_response.text.strip()
-        if raw_text.startswith("```"):
-            lineas = raw_text.splitlines()
-            if lineas[0].startswith("```"):
-                lineas = lineas[1:]
-            if lineas and lineas[-1].startswith("```"):
-                lineas = lineas[:-1]
-            raw_text = "\n".join(lineas).strip()
-
-        try:
-            detalles = json.loads(raw_text, strict=False)
-        except Exception:
-            raw_text_clean = re.sub(
-                r"[\x00-\x1f\x7f-\x9f]",
-                lambda m: "\n" if m.group(0) in "\r\n\t" else " ",
-                raw_text,
-            )
-            detalles = json.loads(raw_text_clean, strict=False)
+        respuesta_limpia = (
+            gemini_response.text.replace("```json", "").replace("```", "").strip()
+        )
+        detalles = json.loads(respuesta_limpia)
 
         detalles["ruta_audio_usuario"] = ruta_relativa_audio
         detalles["frase_objetivo"] = frase_limpia
@@ -941,26 +917,20 @@ async def generar_frases_shadowing(
     DIRECTRICES PEDAGÓGICAS:
     1. Longitud ideal para shadowing: oraciones de entre 6 y 14 palabras (ni demasiado cortas que no tengan ritmo, ni tan largas que no se puedan retener en memoria de trabajo).
     2. Deben contener contracciones naturales (I'd, we've, don't, could've) y enlaces fonéticos comunes.
-    3. Para cada oración proporciona:
-       - "en": Oración en inglés con puntuación correcta.
+    3. ESTÁNDAR ESTRICTO SIN CORCHETES:
+       - En "en", escribe ÚNICAMENTE la oración en inglés en texto limpio con puntuación correcta.
+       - ESTRICTAMENTE PROHIBIDO usar corchetes [ ] o guiones bajos (____).
+    4. Para cada oración proporciona:
+       - "en": Oración en inglés limpia.
        - "es": Traducción natural al español.
        - "ipa": Transcripción fonética IPA precisa de toda la oración.
        - "foco_ritmo": Breve nota en español (3-6 palabras) sobre qué entonar o enlazar (ej. "Enlaza 'pick it up' como una sola palabra").
-
-    Devuelve ESTRICTAMENTE un arreglo JSON con 5 objetos:
-    [
-      {{
-        "en": "...",
-        "es": "...",
-        "ipa": "...",
-        "foco_ritmo": "..."
-      }}
-    ]
     """
 
     try:
         configuracion = types.GenerateContentConfig(
             response_mime_type="application/json",
+            response_schema=list[FraseShadowingPropuesta],
             temperature=0.8,
         )
 
@@ -970,18 +940,27 @@ async def generar_frases_shadowing(
             config=configuracion,
         )
 
-        raw_text = response.text.strip()
-        if raw_text.startswith("```"):
-            lineas = raw_text.splitlines()
-            if lineas[0].startswith("```"):
-                lineas = lineas[1:]
-            if lineas and lineas[-1].startswith("```"):
-                lineas = lineas[:-1]
-            raw_text = "\n".join(lineas).strip()
-
-        frases_data = json.loads(raw_text)
+        respuesta_limpia = (
+            response.text.replace("```json", "").replace("```", "").strip()
+        )
+        frases_data = json.loads(respuesta_limpia)
         if not isinstance(frases_data, list):
             frases_data = [frases_data]
+
+        # Sanitización de corchetes y espacios
+        for item in frases_data:
+            item["en"] = (
+                str(item.get("en", ""))
+                .replace("[", "")
+                .replace("]", "")
+                .strip()
+            )
+            item["es"] = (
+                str(item.get("es", ""))
+                .replace("[", "")
+                .replace("]", "")
+                .strip()
+            )
 
         # Generar audios con Edge-TTS concurrentemente
         tareas_audio = []
@@ -997,7 +976,7 @@ async def generar_frases_shadowing(
             tareas_audio.append(generar_audio(texto_en, ruta_fisica))
 
         if tareas_audio:
-            await asyncio.gather(*tareas_audio)
+            await asyncio.gather(*tareas_audio, return_exceptions=True)
 
         # Guardar en SQLite persistentemente
         fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M")
