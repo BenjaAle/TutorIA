@@ -21,6 +21,12 @@ import { cn } from "@/lib/utils";
 import ModalAnki, { type CartaAnki } from "../components/ModalAnki";
 import ShadowingCard, { type FraseShadowing } from "../components/ShadowingCard";
 
+interface VocabularioSugerido {
+  en: string;
+  es: string;
+  tipo?: string;
+}
+
 interface TemaSpeaking {
   id: string;
   categoria: string;
@@ -28,6 +34,7 @@ interface TemaSpeaking {
   titulo: string;
   pregunta: string;
   puntos_guia: string[];
+  vocabulario_sugerido?: VocabularioSugerido[];
   duracion_recomendada: string;
 }
 
@@ -74,6 +81,12 @@ interface EvaluacionDetalles {
     }[];
     feedback?: string;
   };
+  puentes_lexicos?: {
+    dicho_espanol: string;
+    equivalente_ingles: string;
+    ejemplo: string;
+    explicacion: string;
+  }[];
   native_reformulation: string;
   tutor_feedback: string;
 }
@@ -122,6 +135,8 @@ export default function SpeakingPage() {
   const [customTopic, setCustomTopic] = useState("");
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [generandoTema, setGenerandoTema] = useState(false);
+  const [customVocabulario, setCustomVocabulario] = useState<VocabularioSugerido[]>([]);
+  const [cargandoVocabulario, setCargandoVocabulario] = useState(false);
 
   // Grabación
   const [isRecording, setIsRecording] = useState(false);
@@ -434,6 +449,31 @@ export default function SpeakingPage() {
       alert("Error al generar tema con IA");
     } finally {
       setGenerandoTema(false);
+    }
+  };
+
+  // Sugerir vocabulario clave con IA para un tema personalizado
+  const sugerirVocabularioCustom = async () => {
+    if (!customTopic.trim() || cargandoVocabulario) return;
+    setCargandoVocabulario(true);
+    try {
+      const res = await fetch("/api/speaking/sugerir_vocabulario", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tema: customTopic.trim(),
+          nivel: selectedTema?.nivel || "B2",
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const items = Array.isArray(data) ? data : data.vocabulario || [];
+        setCustomVocabulario(items);
+      }
+    } catch (e) {
+      console.error("Error al sugerir vocabulario:", e);
+    } finally {
+      setCargandoVocabulario(false);
     }
   };
 
@@ -762,6 +802,68 @@ export default function SpeakingPage() {
     setAnkiModalOpen(true);
   };
 
+  // Preparar carta de puente léxico (palabra dicha en español) para exportar a Anki
+  const handleGuardarPuenteEnAnki = (
+    puente: {
+      dicho_espanol: string;
+      equivalente_ingles: string;
+      ejemplo: string;
+      explicacion: string;
+    },
+    key: string,
+  ) => {
+    const cleanExample = (puente.ejemplo || "").replace(/\[|\]/g, "").trim();
+    const cleanWord = (puente.equivalente_ingles || "").replace(/\[|\]/g, "").trim();
+
+    setPendingAnkiKey(key);
+    setCartasAExportar([
+      {
+        frente: cleanWord,
+        reverso: puente.dicho_espanol,
+        ejemplos: cleanExample
+          ? [
+              {
+                en: cleanExample,
+                es: `Dicho en español: "${puente.dicho_espanol}".`,
+                palabra_oculta: cleanWord,
+              },
+            ]
+          : [],
+        ejemplo_ingles: cleanExample,
+        ejemplo_espanol: cleanExample ? `Dicho en español: "${puente.dicho_espanol}".` : "",
+        termino_imagen: cleanWord,
+        categoria: "Vocabulario",
+        observacion: `Puente léxico (dijiste "${puente.dicho_espanol}"): ${puente.explicacion}`,
+      },
+    ]);
+    setAnkiModalOpen(true);
+  };
+
+  // Preparar carta de vocabulario sugerido previo para exportar a Anki
+  const handleGuardarVocabSugeridoEnAnki = (
+    item: VocabularioSugerido,
+    e: React.MouseEvent,
+  ) => {
+    e.stopPropagation();
+    const cleanWord = (item.en || "").replace(/\[|\]/g, "").trim();
+    const ankiKey = `pre_vocab:${cleanWord}:${item.es}`;
+
+    setPendingAnkiKey(ankiKey);
+    setCartasAExportar([
+      {
+        frente: cleanWord,
+        reverso: item.es,
+        ejemplos: [],
+        ejemplo_ingles: "",
+        ejemplo_espanol: "",
+        termino_imagen: cleanWord,
+        categoria: "Vocabulario",
+        observacion: item.tipo ? `Tipo: ${item.tipo}` : "Vocabulario sugerido para speaking",
+      },
+    ]);
+    setAnkiModalOpen(true);
+  };
+
   // Reproducir audio con Text-to-Speech nativo del navegador
   const reproducirTextoTTS = (texto: string) => {
     if (!("speechSynthesis" in window)) return;
@@ -935,16 +1037,83 @@ export default function SpeakingPage() {
 
                   {/* Cuerpo del Tema */}
                   {isCustomMode ? (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <label className="text-sm font-medium text-foreground">
                         Escribe el tema o pregunta sobre la que deseas hablar:
                       </label>
                       <textarea
                         value={customTopic}
-                        onChange={(e) => setCustomTopic(e.target.value)}
+                        onChange={(e) => {
+                          setCustomTopic(e.target.value);
+                          setCustomVocabulario([]);
+                        }}
                         placeholder="Ejemplo: Describe your favorite childhood memory and what you learned from it."
                         className="w-full rounded-xl border border-border bg-background p-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary min-h-[80px]"
                       />
+                      <div className="flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={sugerirVocabularioCustom}
+                          disabled={cargandoVocabulario || !customTopic.trim()}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50 text-foreground cursor-pointer"
+                        >
+                          {cargandoVocabulario ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <Sparkles className="size-3.5 text-amber-500" />
+                          )}
+                          💡 Sugerir vocabulario clave para este tema
+                        </button>
+                      </div>
+
+                      {/* Vocabulario sugerido para tema personalizado */}
+                      {customVocabulario && customVocabulario.length > 0 && (
+                        <div className="mt-3 p-3.5 rounded-xl border border-border/70 bg-muted/20 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                              <Sparkles className="size-3.5 text-amber-500" />
+                              Vocabulario y expresiones recomendadas:
+                            </p>
+                            <span className="text-[10px] text-muted-foreground">
+                              Clic para escuchar pronunciación
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {customVocabulario.map((item, idx) => (
+                              <div
+                                key={idx}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-background/90 hover:bg-muted border border-border text-foreground transition-all group shadow-2xs"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => reproducirTextoTTS(item.en)}
+                                  className="inline-flex items-center gap-1.5 hover:text-primary transition-colors cursor-pointer"
+                                  title="Escuchar pronunciación"
+                                >
+                                  <Volume2 className="size-3 text-muted-foreground group-hover:text-primary transition-colors" />
+                                  <span className="font-semibold">{item.en}</span>
+                                  <span className="text-muted-foreground text-[11px] font-normal">
+                                    ({item.es})
+                                  </span>
+                                  {item.tipo && (
+                                    <span className="text-[9px] uppercase tracking-wider px-1 py-0.5 rounded bg-muted text-muted-foreground font-mono">
+                                      {item.tipo}
+                                    </span>
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleGuardarVocabSugeridoEnAnki(item, e)}
+                                  className="ml-1 text-muted-foreground hover:text-primary transition-colors p-0.5 rounded hover:bg-muted cursor-pointer"
+                                  title="Guardar en Anki"
+                                >
+                                  <Brain className="size-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     selectedTema && (
@@ -970,7 +1139,7 @@ export default function SpeakingPage() {
                           ))}
                         </div>
 
-                        <div className="rounded-xl border border-border/70 bg-muted/20 p-4 space-y-2">
+                        <div className="rounded-xl border border-border/70 bg-muted/20 p-4 space-y-3">
                           <h3 className="font-serif text-lg font-semibold text-foreground">
                             {selectedTema.pregunta}
                           </h3>
@@ -987,6 +1156,57 @@ export default function SpeakingPage() {
                               ))}
                             </ul>
                           </div>
+
+                          {/* Vocabulario clave sugerido previo */}
+                          {selectedTema.vocabulario_sugerido &&
+                            selectedTema.vocabulario_sugerido.length > 0 && (
+                              <div className="pt-2 border-t border-border/50">
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                                    <Sparkles className="size-3.5 text-amber-500" />
+                                    Vocabulario y expresiones clave recomendadas:
+                                  </p>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    Clic para escuchar pronunciación
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {selectedTema.vocabulario_sugerido.map((item, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-background/90 hover:bg-muted border border-border text-foreground transition-all group shadow-2xs"
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() => reproducirTextoTTS(item.en)}
+                                        className="inline-flex items-center gap-1.5 hover:text-primary transition-colors cursor-pointer"
+                                        title="Escuchar pronunciación"
+                                      >
+                                        <Volume2 className="size-3 text-muted-foreground group-hover:text-primary transition-colors" />
+                                        <span className="font-semibold">{item.en}</span>
+                                        <span className="text-muted-foreground text-[11px] font-normal">
+                                          ({item.es})
+                                        </span>
+                                        {item.tipo && (
+                                          <span className="text-[9px] uppercase tracking-wider px-1 py-0.5 rounded bg-muted text-muted-foreground font-mono">
+                                            {item.tipo}
+                                          </span>
+                                        )}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => handleGuardarVocabSugeridoEnAnki(item, e)}
+                                        className="ml-1 text-muted-foreground hover:text-primary transition-colors p-0.5 rounded hover:bg-muted cursor-pointer"
+                                        title="Guardar en Anki"
+                                      >
+                                        <Brain className="size-3" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
                           <div className="flex items-center gap-1.5 text-xs text-muted-foreground pt-1">
                             <Clock className="size-3.5 text-primary" />
                             <span>Duración recomendada: {selectedTema.duracion_recomendada}</span>
@@ -1568,6 +1788,92 @@ export default function SpeakingPage() {
                                       isAdded
                                         ? "border border-border bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted"
                                         : "border border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 hover:bg-fuchsia-500/20"
+                                    )}
+                                  >
+                                    <Brain className="size-3.5" />
+                                    {isAdded ? "Añadir de nuevo" : "Añadir a Anki"}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                  {/* Puentes de Vocabulario (Palabras en español rescatadas) */}
+                  {currentResult.puentes_lexicos &&
+                    currentResult.puentes_lexicos.length > 0 && (
+                      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-serif text-lg font-semibold flex items-center gap-2">
+                            <span className="text-blue-500">🌉</span> Puentes de Vocabulario (Español ➔ Inglés)
+                          </h4>
+                          <span className="text-xs text-muted-foreground">
+                            Palabras o frases que dijiste en español, ahora en inglés nativo
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {currentResult.puentes_lexicos.map((puente, idx) => {
+                            const ankiKey = `bridge:${puente.dicho_espanol}:${puente.equivalente_ingles}`;
+                            const isAdded = addedAnkiKeys.has(ankiKey);
+
+                            return (
+                              <div
+                                key={idx}
+                                className="rounded-xl border border-border p-4 bg-muted/20 flex flex-col justify-between space-y-3"
+                              >
+                                <div className="space-y-1.5">
+                                  <div className="text-xs text-muted-foreground">
+                                    Dijiste en español:{" "}
+                                    <span className="font-medium text-destructive">
+                                      "{puente.dicho_espanol}"
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-base font-semibold text-primary">
+                                      "{puente.equivalente_ingles}"
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => reproducirTextoTTS(puente.equivalente_ingles)}
+                                      className="text-xs text-muted-foreground hover:text-primary transition-colors p-1 cursor-pointer"
+                                      title="Escuchar pronunciación"
+                                    >
+                                      <Volume2 className="size-4" />
+                                    </button>
+                                  </div>
+                                  {puente.ejemplo && (
+                                    <p className="text-xs text-muted-foreground italic">
+                                      Ej: {puente.ejemplo}
+                                    </p>
+                                  )}
+                                  {puente.explicacion && (
+                                    <p className="text-xs text-muted-foreground">
+                                      {puente.explicacion}
+                                    </p>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center justify-between pt-2 border-t border-border/40">
+                                  {isAdded ? (
+                                    <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                                      <Check className="size-3.5" /> Ya añadido a Anki
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">
+                                      Aprende esta palabra
+                                    </span>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleGuardarPuenteEnAnki(puente, ankiKey)}
+                                    className={cn(
+                                      "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer",
+                                      isAdded
+                                        ? "border border-border bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted"
+                                        : "border border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20"
                                     )}
                                   >
                                     <Brain className="size-3.5" />

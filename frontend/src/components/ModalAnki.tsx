@@ -1231,7 +1231,7 @@ export default function ModalAnki({
               </span>
             ) : (
               <>
-                Mazo destino: <span className="text-foreground">TutorIA</span>
+                Mazo destino: <span className="text-foreground">Ingles_IA</span>
               </>
             )}
           </p>

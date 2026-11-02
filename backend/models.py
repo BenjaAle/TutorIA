@@ -152,6 +152,22 @@ class DescartarShadowingRequest(BaseModel):
     item_id: str
 
 
+class SugerirVocabularioTemaRequest(BaseModel):
+    tema: str
+    nivel: str = "B2"
+
+
+class VocabularioSugeridoItem(BaseModel):
+    en: str = Field(
+        description="Término, colocación o phrasal verb útil en inglés para el tema"
+    )
+    es: str = Field(description="Traducción concisa al español")
+    tipo: Optional[str] = Field(
+        default="",
+        description="Categoría gramatical opcional (ej: 'verbo', 'sustantivo', 'phrasal verb', 'expresión')",
+    )
+
+
 class TemaSpeakingPropuesto(BaseModel):
     id: str = Field(description="Identificador único, ej. custom_a1b2c3")
     categoria: str = Field(
@@ -165,6 +181,10 @@ class TemaSpeakingPropuesto(BaseModel):
     )
     puntos_guia: List[str] = Field(
         description="3 o 4 preguntas guía en inglés para estructurar la respuesta oral"
+    )
+    vocabulario_sugerido: List[VocabularioSugeridoItem] = Field(
+        default=[],
+        description="4 a 6 palabras o colocaciones clave sugeridas en inglés con su traducción para preparar al estudiante",
     )
     duracion_recomendada: str = Field(
         default="60 - 90 seg", description="Duración recomendada sugerida"
@@ -261,9 +281,24 @@ class VocabularyDetalles(BaseModel):
     )
 
 
+class PuenteLexicoPropuesta(BaseModel):
+    dicho_espanol: str = Field(
+        description="Palabra o frase exacta que el estudiante dijo en español al quedarse trabado"
+    )
+    equivalente_ingles: str = Field(
+        description="Término, colocación o phrasal verb en inglés más natural para expresar esa idea en ese contexto"
+    )
+    ejemplo: str = Field(
+        description="Oración de ejemplo natural y limpia en inglés usando el término equivalente (sin corchetes)"
+    )
+    explicacion: str = Field(
+        description="Explicación breve en español sobre por qué se usa este término y cómo recordarlo"
+    )
+
+
 class EvaluacionSpeakingPropuesta(BaseModel):
     transcription: str = Field(
-        description="Transcripción textual verbatim de lo dicho en inglés por el usuario. No inventar palabras"
+        description="Transcripción textual verbatim de lo dicho en inglés (y español si usó puente) por el usuario. No inventar palabras"
     )
     overall_score: int = Field(
         ge=0, le=100, description="Puntuación global calculada objetivamente de 0 a 100"
@@ -275,6 +310,10 @@ class EvaluacionSpeakingPropuesta(BaseModel):
     pronunciation: PronunciationDetalles
     grammar: GrammarDetalles
     vocabulary: VocabularyDetalles
+    puentes_lexicos: List[PuenteLexicoPropuesta] = Field(
+        default=[],
+        description="Palabras o frases que el estudiante dijo en español al trabarse, con su equivalente natural en inglés, ejemplo y explicación. Si no dijo nada en español, lista vacía []",
+    )
     native_reformulation: str = Field(
         description="Reformulación natural en inglés de cómo un hablante nativo comunicaría el mensaje pretendido"
     )

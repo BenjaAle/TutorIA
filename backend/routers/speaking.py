@@ -31,6 +31,8 @@ from models import (
     EvaluacionSpeakingPropuesta,
     EvaluacionShadowingPropuesta,
     FraseShadowingPropuesta,
+    SugerirVocabularioTemaRequest,
+    VocabularioSugeridoItem,
 )
 
 router = APIRouter(tags=["Speaking"])
@@ -54,6 +56,13 @@ TEMAS_PREDEFINIDOS = [
             "How do you spend your afternoons and evenings?",
             "Which part of the day is your favorite and why?",
         ],
+        "vocabulario_sugerido": [
+            {"en": "early bird / night owl", "es": "madrugador / noctámbulo", "tipo": "expresión"},
+            {"en": "wind down", "es": "desconectar / relajarse", "tipo": "phrasal verb"},
+            {"en": "commute", "es": "trayecto diario al trabajo/estudio", "tipo": "sustantivo/verbo"},
+            {"en": "kick off the day", "es": "comenzar el día", "tipo": "expresión"},
+            {"en": "hectic schedule", "es": "agenda o rutina ajetreada", "tipo": "colocación"},
+        ],
         "duracion_recomendada": "45 - 60 seg",
     },
     {
@@ -67,6 +76,13 @@ TEMAS_PREDEFINIDOS = [
             "What do you like most about living there?",
             "Where would you take a friend visiting for the first time?",
             "Is there anything you would change about it?",
+        ],
+        "vocabulario_sugerido": [
+            {"en": "bustling / peaceful", "es": "bullicioso / apacible", "tipo": "adjetivo"},
+            {"en": "local landmarks", "es": "lugares emblemáticos", "tipo": "sustantivo"},
+            {"en": "public amenities", "es": "servicios y comodidades públicas", "tipo": "sustantivo"},
+            {"en": "stroll around", "es": "dar un paseo / recorrer", "tipo": "phrasal verb"},
+            {"en": "green spaces", "es": "áreas verdes o parques", "tipo": "colocación"},
         ],
         "duracion_recomendada": "45 - 60 seg",
     },
@@ -82,6 +98,13 @@ TEMAS_PREDEFINIDOS = [
             "Did anything unexpected happen?",
             "Why does this trip stand out in your memory?",
         ],
+        "vocabulario_sugerido": [
+            {"en": "breathtaking scenery", "es": "paisajes que quitan el aliento", "tipo": "colocación"},
+            {"en": "off the beaten path", "es": "fuera de las rutas turísticas habituales", "tipo": "expresión"},
+            {"en": "set off on a journey", "es": "emprender un viaje", "tipo": "phrasal verb"},
+            {"en": "warm hospitality", "es": "cálida hospitalidad", "tipo": "colocación"},
+            {"en": "unwind", "es": "despejarse y recargar energías", "tipo": "verbo"},
+        ],
         "duracion_recomendada": "60 - 90 seg",
     },
     {
@@ -95,6 +118,13 @@ TEMAS_PREDEFINIDOS = [
             "What options or factors did you consider?",
             "What decision did you eventually make?",
             "Looking back, how did it shape where you are today?",
+        ],
+        "vocabulario_sugerido": [
+            {"en": "weigh the pros and cons", "es": "sopesar pros y contras", "tipo": "expresión"},
+            {"en": "at a crossroads", "es": "en una encrucijada", "tipo": "expresión"},
+            {"en": "take a leap of faith", "es": "dar un salto de fe / arriesgarse", "tipo": "expresión"},
+            {"en": "turn out for the best", "es": "resultar para mejor", "tipo": "phrasal verb"},
+            {"en": "in hindsight", "es": "en retrospectiva / visto después", "tipo": "expresión"},
         ],
         "duracion_recomendada": "60 - 90 seg",
     },
@@ -110,6 +140,13 @@ TEMAS_PREDEFINIDOS = [
             "How did you communicate or collaborate with others?",
             "What was the outcome and what did you learn?",
         ],
+        "vocabulario_sugerido": [
+            {"en": "tight deadline", "es": "plazo o fecha límite ajustada", "tipo": "colocación"},
+            {"en": "troubleshoot", "es": "detectar y resolver problemas", "tipo": "verbo"},
+            {"en": "tackle an obstacle", "es": "afrontar un obstáculo de frente", "tipo": "colocación"},
+            {"en": "team player", "es": "persona que trabaja bien en equipo", "tipo": "sustantivo"},
+            {"en": "valuable takeaway", "es": "lección o conclusión valiosa", "tipo": "sustantivo"},
+        ],
         "duracion_recomendada": "60 - 90 seg",
     },
     {
@@ -123,6 +160,13 @@ TEMAS_PREDEFINIDOS = [
             "What concerns or challenges should society be mindful of?",
             "How are you personally adapting to AI tools?",
             "Will human connection become more or less valuable?",
+        ],
+        "vocabulario_sugerido": [
+            {"en": "cutting-edge tools", "es": "herramientas de vanguardia", "tipo": "colocación"},
+            {"en": "automate tedious tasks", "es": "automatizar tareas tediosas", "tipo": "colocación"},
+            {"en": "double-edged sword", "es": "arma de doble filo", "tipo": "expresión"},
+            {"en": "upskill and adapt", "es": "capacitarse y adaptarse", "tipo": "verbo"},
+            {"en": "ethical implications", "es": "implicaciones éticas", "tipo": "sustantivo"},
         ],
         "duracion_recomendada": "60 - 90 seg",
     },
@@ -149,21 +193,12 @@ def generar_tema_con_ia(
         Generate an engaging and natural English Speaking prompt for an English learner at level {nivel}.
         Student interests: {intereses}.
         
-        Return ONLY valid JSON matching this structure:
-        {{
-            "id": "custom_{uuid.uuid4().hex[:6]}",
-            "categoria": "Personalizado por IA",
-            "nivel": "{nivel}",
-            "titulo": "Short catchy title in English",
-            "pregunta": "The full, engaging question or prompt in English (1-2 sentences)",
-            "puntos_guia": [
-                "Guiding question 1 to help structure their answer",
-                "Guiding question 2",
-                "Guiding question 3",
-                "Guiding question 4"
-            ],
-            "duracion_recomendada": "60 - 90 seg"
-        }}
+        Requirements:
+        1. "titulo": Short catchy title in English.
+        2. "pregunta": Full, engaging question or prompt in English (1-2 sentences).
+        3. "puntos_guia": 3 to 4 guiding questions in English.
+        4. "vocabulario_sugerido": Exactly 4 to 6 high-value words, collocations, or phrasal verbs in English with natural Spanish translations and part-of-speech type to equip the student with vocabulary beforehand.
+        5. "duracion_recomendada": e.g. "60 - 90 seg".
         """
 
         configuracion = types.GenerateContentConfig(
@@ -189,6 +224,52 @@ def generar_tema_con_ia(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error generando tema: {str(e)}",
+        )
+
+
+@router.post("/sugerir_vocabulario")
+def sugerir_vocabulario_tema(
+    req: SugerirVocabularioTemaRequest,
+    user_id: str = Depends(get_current_user),
+):
+    """Genera entre 5 y 6 palabras o colocaciones clave para preparar al alumno sobre un tema específico."""
+    tema_limpio = req.tema.strip()
+    if not tema_limpio:
+        raise HTTPException(status_code=400, detail="El tema no puede estar vacío.")
+
+    prompt = f"""
+    Eres un entrenador experto de English Speaking para hispanohablantes.
+    El estudiante va a hablar sobre este tema o pregunta:
+    "{tema_limpio}"
+    Nivel de inglés del estudiante: {req.nivel or "B2"}.
+
+    Tu misión es entregarle entre 5 y 6 'Power Words', colocaciones auténticas o phrasal verbs indispensables en inglés que un nativo usaría naturalmente para este tema.
+    Para cada término, incluye su traducción concisa y natural al español y su tipo (ej: 'sustantivo', 'phrasal verb', 'colocación', 'expresión').
+    """
+
+    try:
+        configuracion = types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=list[VocabularioSugeridoItem],
+            temperature=0.7,
+        )
+
+        response = client.models.generate_content(
+            model=GEMINI_MODEL, contents=prompt, config=configuracion
+        )
+        respuesta_limpia = (
+            response.text.replace("```json", "").replace("```", "").strip()
+        )
+        vocabulario = json.loads(respuesta_limpia)
+        if isinstance(vocabulario, dict):
+            vocabulario = next(
+                (v for v in vocabulario.values() if isinstance(v, list)), []
+            )
+        return vocabulario
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al sugerir vocabulario para el tema: {str(e)}",
         )
 
 
@@ -241,7 +322,17 @@ async def evaluar_speaking(
         - BE COMPLETELY OBJECTIVE, IMPARTIAL, AND REALISTIC. Do NOT inflate scores out of politeness or false encouragement. True progress requires honest diagnostic feedback.
         - If the student speaks broken English, makes frequent pauses, has poor pronunciation, or commits basic grammar errors, REFLECT THIS ACCURATELY in the scores (e.g., A1/A2 with scores in the 30-55 range).
         - If they perform well with minor slips, evaluate at B1 or B2 (60-79). Only award 80+ (C1/C2) to genuinely fluent, articulate, and grammatically complex speech.
-        - The JSON schema below defines the OUTPUT STRUCTURE and DATA TYPES only. The numbers and texts shown are placeholders: DO NOT repeat placeholder scores like 82 or B2 unless the student's genuine performance warrants it. Compute real scores from 0 to 100 based strictly on this audio.
+
+        SPANISH CODE-SWITCHING & LEXICAL BRIDGES ("puentes_lexicos"):
+        - If the student used Spanish words or short phrases when stuck or missing an English word (e.g. "I went to the centro de acopio to give away some clothes"):
+          * DO NOT treat this as a humiliating or severe grammatical failure; it is a valid learning bridge.
+          * In "transcription", transcribe faithfully what they said (both the English parts and Spanish parts).
+          * In "puentes_lexicos", include an item for EVERY Spanish word/phrase used:
+            - "dicho_espanol": The exact Spanish word or phrase spoken (e.g. "centro de acopio").
+            - "equivalente_ingles": The most natural, idiomatic native English expression/collocation (e.g. "donation drop-off center" or "collection point").
+            - "ejemplo": A clean, natural example sentence in English demonstrating this equivalent in action (ESTRICTAMENTE PROHIBIDO corchetes [ ]).
+            - "explicacion": A concise, clear tip in Spanish explaining why this term fits and how to remember it.
+          * If the student spoke purely in English without using any Spanish words, set "puentes_lexicos" to an empty list [].
 
         Evaluate across these four dimensions:
         1. Pronunciation & Clarity (0-100): Phoneme accuracy, syllable stress, intonation, comprehensibility. If words were mispronounced or unintelligible, lower the score accordingly.
