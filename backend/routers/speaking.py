@@ -341,60 +341,20 @@ async def evaluar_speaking(
         4. Vocabulary & Lexical Resource (0-100): Breadth of vocabulary, precision, avoidance of overused words, ability to paraphrase.
 
         CRITICAL FORMATTING RULE FOR "grammar.errors":
-        Each element in "errors" MUST be a single, complete JSON object containing all 3 fields together:
-        {{"original": "...", "correction": "...", "explanation": "..."}}
-        NEVER split an error across multiple objects (never create one object with only original/correction and a separate object with only explanation).
+        Each element in "errors" MUST be a single, complete object containing all 3 fields together:
+        original, correction, and explanation.
 
-        Return STRICTLY a JSON object matching this schema:
-        {{
-            "transcription": "<Verbatim transcription in English of what the user actually said. If words were unintelligible, transcribe phonetically or what was audibly clear. Do not invent words.>",
-            "overall_score": <calculated weighted average integer from 0 to 100 based on genuine performance>,
-            "cefr_level": "<strictly one of: 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'>",
-            "fluency": {{
-                "score": <integer 0-100>,
-                "estimated_wpm": <realistic integer words per minute>,
-                "pace_evaluation": "<one of: 'Demasiado lento', 'Vacilante', 'Ritmo natural', 'Demasiado rápido'>",
-                "filler_words": [<list of strings of detected filler words such as 'um', 'uh', 'like', or empty list [] if none>],
-                "feedback": "<Objective critique in Spanish analyzing rhythm, pauses, and speech flow without sugarcoating.>"
-            }},
-            "pronunciation": {{
-                "score": <integer 0-100>,
-                "clarity_rating": "<one of: 'Deficiente', 'Necesita práctica', 'Aceptable', 'Buena', 'Excelente'>",
-                "problematic_words": [
-                    {{
-                        "word": "<exact word mispronounced>",
-                        "ipa": "<IPA phonetic transcription of correct pronunciation>",
-                        "tip": "<Specific, actionable advice in Spanish on how to position tongue/mouth or stress the syllable>"
-                    }}
-                ],
-                "feedback": "<Honest phonetic critique in Spanish pointing out sound confusions or accent obstacles.>"
-            }},
-            "grammar": {{
-                "score": <integer 0-100>,
-                "errors": [
-                    {{
-                        "original": "<exact incorrect phrase spoken by student>",
-                        "correction": "<correct English phrase>",
-                        "explanation": "<Clear rule explanation in Spanish>"
-                    }}
-                ],
-                "feedback": "<Objective assessment in Spanish of grammatical range and error frequency.>"
-            }},
-            "vocabulary": {{
-                "score": <integer 0-100>,
-                "suggestions": [
-                    {{
-                        "original_word": "<basic or repetitive word used by student>",
-                        "better_alternative": "<higher-register or more natural native collocation>",
-                        "example_sentence": "<natural example sentence in English>",
-                        "explanation": "<Why this upgrade makes their speech more precise (in Spanish)>"
-                    }}
-                ],
-                "feedback": "<Assessment in Spanish of lexical variety and precision.>"
-            }},
-            "native_reformulation": "<Natural, fluent reformulation in English of how an articulate native speaker would communicate the student's exact intended message for this topic.>",
-            "tutor_feedback": "<Honest, constructive summary in Spanish: highlight what worked, clearly identify the main weaknesses holding them back, and give 2 concrete steps to practice next.>"
-        }}
+        CRITICAL CONTENT REQUIREMENTS:
+        - "transcription": Verbatim transcription of what the user said (English and any Spanish bridges used). Do not invent words.
+        - "overall_score": Realistic integer 0-100 reflecting the 4 dimensions.
+        - "cefr_level": Strictly one of 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'.
+        - "fluency": Score 0-100, estimated WPM, pace evaluation ('Demasiado lento', 'Vacilante', 'Ritmo natural', 'Demasiado rápido'), detected filler words (e.g. 'um', 'uh', 'like'), and objective critique in Spanish.
+        - "pronunciation": Score 0-100, clarity rating ('Deficiente', 'Necesita práctica', 'Aceptable', 'Buena', 'Excelente'), problematic words (word, IPA, actionable tip in Spanish), and phonetic feedback in Spanish.
+        - "grammar": Score 0-100, errors list (each containing original phrase, correction, and rule explanation in Spanish), and feedback in Spanish.
+        - "vocabulary": Score 0-100, suggestions list (original word, better native alternative, natural example sentence WITHOUT square brackets [ ], explanation in Spanish), and lexical feedback in Spanish.
+        - "puentes_lexicos": List of bridges for words/phrases spoken in Spanish, or empty list [] if user spoke only English.
+        - "native_reformulation": Natural, fluent English reformulation of the student's intended message.
+        - "tutor_feedback": Constructive summary in Spanish with strengths, main weaknesses, and 2 concrete next steps.
         """
 
         configuracion = types.GenerateContentConfig(
@@ -678,24 +638,13 @@ async def evaluar_shadowing(
            - 55-74: Understandable but strained, robotic, or multiple phoneme substitutions.
            - <55: Substantially incomplete, wrong words, or heavily distorted.
 
-        Return STRICTLY a JSON object matching this schema:
-        {{
-            "transcription": "<Verbatim transcription in English of what the student said>",
-            "overall_score": <integer 0-100>,
-            "status": "<one of: 'excelente' (85-100), 'bueno' (70-84), 'regular' (50-69), 'necesita_practica' (<50)>",
-            "rhythm": {{
-                "score": <integer 0-100>,
-                "feedback": "<1-sentence assessment in Spanish of pacing and connected speech>"
-            }},
-            "words_analysis": [
-                {{
-                    "word": "<word from TARGET SENTENCE>",
-                    "status": "<strictly: 'correct' | 'needs_work' | 'missed'>",
-                    "tip": "<Specific tip in Spanish or null>"
-                }}
-            ],
-            "coach_tip": "<One encouraging, high-impact tip in Spanish for the student to sound more natural on their next try>"
-        }}
+        CRITICAL CONTENT REQUIREMENTS:
+        - "transcription": Verbatim transcription in English of what the student uttered.
+        - "overall_score": Integer 0-100 reflecting overall phonetic and cadence fidelity.
+        - "status": Strictly one of 'excelente', 'bueno', 'regular', 'necesita_practica'.
+        - "rhythm": Score 0-100 and a 1-sentence assessment in Spanish of pacing and connected speech.
+        - "words_analysis": An element for EVERY single word in the TARGET SENTENCE in exact sequence. For each, indicate status ('correct', 'needs_work', 'missed') and specific tip in Spanish (or null if correct).
+        - "coach_tip": High-impact, encouraging advice in Spanish for the student to sound more natural on the next try.
         """
 
         configuracion = types.GenerateContentConfig(
