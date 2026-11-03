@@ -1,7 +1,6 @@
 from models import (
     RenombrarRequest,
     NuevaHistoria,
-    LineaHistoriaPropuesta,
     HistoriaPropuesta,
 )
 # pyrefly: ignore [missing-import]

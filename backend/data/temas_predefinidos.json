@@ -1,0 +1,128 @@
+[
+    {
+        "id": "daily_routine",
+        "categoria": "Casual & Vida Diaria",
+        "nivel": "A2 - B1",
+        "titulo": "My Typical Day",
+        "pregunta": "Describe your typical daily routine from morning to night. What part of the day do you enjoy the most and why?",
+        "puntos_guia": [
+            "What time do you usually wake up?",
+            "What are your main morning activities or habits?",
+            "How do you spend your afternoons and evenings?",
+            "Which part of the day is your favorite and why?"
+        ],
+        "vocabulario_sugerido": [
+            {"en": "early bird / night owl", "es": "madrugador / noctámbulo", "tipo": "expresión"},
+            {"en": "wind down", "es": "desconectar / relajarse", "tipo": "phrasal verb"},
+            {"en": "commute", "es": "trayecto diario al trabajo/estudio", "tipo": "sustantivo/verbo"},
+            {"en": "kick off the day", "es": "comenzar el día", "tipo": "expresión"},
+            {"en": "hectic schedule", "es": "agenda o rutina ajetreada", "tipo": "colocación"}
+        ],
+        "duracion_recomendada": "45 - 60 seg"
+    },
+    {
+        "id": "hometown",
+        "categoria": "Casual & Vida Diaria",
+        "nivel": "A2 - B1",
+        "titulo": "My City or Hometown",
+        "pregunta": "Talk about the city or town where you currently live. What are its best attractions and what could be improved?",
+        "puntos_guia": [
+            "Where is it located and what is it known for?",
+            "What do you like most about living there?",
+            "Where would you take a friend visiting for the first time?",
+            "Is there anything you would change about it?"
+        ],
+        "vocabulario_sugerido": [
+            {"en": "bustling / peaceful", "es": "bullicioso / apacible", "tipo": "adjetivo"},
+            {"en": "local landmarks", "es": "lugares emblemáticos", "tipo": "sustantivo"},
+            {"en": "public amenities", "es": "servicios y comodidades públicas", "tipo": "sustantivo"},
+            {"en": "stroll around", "es": "dar un paseo / recorrer", "tipo": "phrasal verb"},
+            {"en": "green spaces", "es": "áreas verdes o parques", "tipo": "colocación"}
+        ],
+        "duracion_recomendada": "45 - 60 seg"
+    },
+    {
+        "id": "memorable_trip",
+        "categoria": "IELTS & Narrativa",
+        "nivel": "B1 - B2",
+        "titulo": "A Memorable Journey",
+        "pregunta": "Describe a trip or vacation that was especially memorable for you. Explain why it left such a lasting impression.",
+        "puntos_guia": [
+            "Where did you go and who did you travel with?",
+            "What memorable activities or sights did you experience?",
+            "Did anything unexpected happen?",
+            "Why does this trip stand out in your memory?"
+        ],
+        "vocabulario_sugerido": [
+            {"en": "breathtaking scenery", "es": "paisajes que quitan el aliento", "tipo": "colocación"},
+            {"en": "off the beaten path", "es": "fuera de las rutas turísticas habituales", "tipo": "expresión"},
+            {"en": "set off on a journey", "es": "emprender un viaje", "tipo": "phrasal verb"},
+            {"en": "warm hospitality", "es": "cálida hospitalidad", "tipo": "colocación"},
+            {"en": "unwind", "es": "despejarse y recargar energías", "tipo": "verbo"}
+        ],
+        "duracion_recomendada": "60 - 90 seg"
+    },
+    {
+        "id": "difficult_decision",
+        "categoria": "IELTS & Narrativa",
+        "nivel": "B2 - C1",
+        "titulo": "An Important Decision",
+        "pregunta": "Talk about a difficult decision you had to make in your personal or professional life. How did you handle it?",
+        "puntos_guia": [
+            "What was the situation and why was the choice tough?",
+            "What options or factors did you consider?",
+            "What decision did you eventually make?",
+            "Looking back, how did it shape where you are today?"
+        ],
+        "vocabulario_sugerido": [
+            {"en": "weigh the pros and cons", "es": "sopesar pros y contras", "tipo": "expresión"},
+            {"en": "at a crossroads", "es": "en una encrucijada", "tipo": "expresión"},
+            {"en": "take a leap of faith", "es": "dar un salto de fe / arriesgarse", "tipo": "expresión"},
+            {"en": "turn out for the best", "es": "resultar para mejor", "tipo": "phrasal verb"},
+            {"en": "in hindsight", "es": "en retrospectiva / visto después", "tipo": "expresión"}
+        ],
+        "duracion_recomendada": "60 - 90 seg"
+    },
+    {
+        "id": "work_challenge",
+        "categoria": "Profesional & Negocios",
+        "nivel": "B2 - C1",
+        "titulo": "Overcoming a Professional Challenge",
+        "pregunta": "Describe a difficult challenge you faced at work, in university, or on a project, and explain the steps you took to overcome it.",
+        "puntos_guia": [
+            "What was the context and what problem arose?",
+            "What actions or strategy did you implement?",
+            "How did you communicate or collaborate with others?",
+            "What was the outcome and what did you learn?"
+        ],
+        "vocabulario_sugerido": [
+            {"en": "tight deadline", "es": "plazo o fecha límite ajustada", "tipo": "colocación"},
+            {"en": "troubleshoot", "es": "detectar y resolver problemas", "tipo": "verbo"},
+            {"en": "tackle an obstacle", "es": "afrontar un obstáculo de frente", "tipo": "colocación"},
+            {"en": "team player", "es": "persona que trabaja bien en equipo", "tipo": "sustantivo"},
+            {"en": "valuable takeaway", "es": "lección o conclusión valiosa", "tipo": "sustantivo"}
+        ],
+        "duracion_recomendada": "60 - 90 seg"
+    },
+    {
+        "id": "ai_impact",
+        "categoria": "Debate & Sociedad",
+        "nivel": "B2 - C2",
+        "titulo": "The Future of AI & Human Work",
+        "pregunta": "How do you believe Artificial Intelligence will change work, education, and creativity over the coming decade?",
+        "puntos_guia": [
+            "Which fields do you think will be most positively affected?",
+            "What concerns or challenges should society be mindful of?",
+            "How are you personally adapting to AI tools?",
+            "Will human connection become more or less valuable?"
+        ],
+        "vocabulario_sugerido": [
+            {"en": "cutting-edge tools", "es": "herramientas de vanguardia", "tipo": "colocación"},
+            {"en": "automate tedious tasks", "es": "automatizar tareas tediosas", "tipo": "colocación"},
+            {"en": "double-edged sword", "es": "arma de doble filo", "tipo": "expresión"},
+            {"en": "upskill and adapt", "es": "capacitarse y adaptarse", "tipo": "verbo"},
+            {"en": "ethical implications", "es": "implicaciones éticas", "tipo": "sustantivo"}
+        ],
+        "duracion_recomendada": "60 - 90 seg"
+    }
+]

@@ -21,8 +21,6 @@ async def obtener_vocabulario(user_id: str = Depends(get_current_user)):
     return palabras
 
 
-
-
 @router.post("/api/vocabulario")
 async def guardar_vocabulario(
     request: Request, user_id: str = Depends(get_current_user)

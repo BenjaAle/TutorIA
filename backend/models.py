@@ -125,11 +125,6 @@ class CartaUnicaRequest(BaseModel):
     traduccion_contexto: str = ""
 
 
-class EntrenamientoPares(BaseModel):
-    fonema_1: str
-    fonema_2: str
-
-
 class GenerarTemaRequest(BaseModel):
     nivel: str = "B2"
     intereses: str = ""

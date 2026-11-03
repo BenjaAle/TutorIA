@@ -3,7 +3,6 @@ from models import (
     InyectarRequest,
     ExtraerRequest,
     CartaPropuesta,
-    EjemploCarta,
 )
 import tempfile
 import genanki

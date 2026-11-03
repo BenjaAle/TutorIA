@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles  # Para que la web lea estaticos js 
 
 # pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
-from routers import chats, anki, historias, fonetica, vocabulario, ejercicios, speaking
+from routers import chats, anki, historias, fonetica, vocabulario, ejercicios, speaking, shadowing
 
 # Inicializar Firebase Admin
 cred = credentials.Certificate("credenciales_firebase.json")
@@ -196,3 +196,5 @@ app.include_router(fonetica.router)
 app.include_router(vocabulario.router)
 app.include_router(ejercicios.router)
 app.include_router(speaking.router, prefix="/api/speaking") # prefijo a las rutas de speaking.py
+app.include_router(shadowing.router, prefix="/api/speaking") # prefijo a las rutas de shadowing.py
+app.include_router(shadowing.router, prefix="/api") # compatibilidad para /api/shadowing
